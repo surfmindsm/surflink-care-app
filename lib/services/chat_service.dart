@@ -646,6 +646,19 @@ class ChatService {
     }
   }
 
+  // 채팅방 업데이트 스트림
+  Stream<ChatRoom> getChatRoomUpdatesStream() {
+    _chatRoomStreamController ??= StreamController<ChatRoom>.broadcast();
+    
+    // Mock 데이터로 시뮤레이션
+    Timer.periodic(const Duration(seconds: 10), (timer) {
+      // 실제로는 WebSocket이나 Server-Sent Events를 사용
+      // 여기서는 mock 데이터를 전송
+    });
+    
+    return _chatRoomStreamController!.stream;
+  }
+  
   Future<String?> _getAccessToken() async {
     // TODO: 실제 토큰 관리 로직
     return 'mock_access_token';

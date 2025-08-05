@@ -28,6 +28,30 @@ enum ChatRoomType {
   support, // 고객 지원 채팅방
 }
 
+extension ChatRoomTypeExtension on ChatRoomType {
+  String get displayName {
+    switch (this) {
+      case ChatRoomType.matching:
+        return '매칭 채팅';
+      case ChatRoomType.contract:
+        return '계약 채팅';
+      case ChatRoomType.support:
+        return '고객지원';
+    }
+  }
+  
+  Color get color {
+    switch (this) {
+      case ChatRoomType.matching:
+        return Colors.blue;
+      case ChatRoomType.contract:
+        return Colors.green;
+      case ChatRoomType.support:
+        return Colors.orange;
+    }
+  }
+}
+
 // Extensions for display names
 extension MessageTypeExtension on MessageType {
   String get displayName {

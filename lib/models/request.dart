@@ -20,6 +20,10 @@ extension ServiceTypeExtension on ServiceType {
         return '상담';
     }
   }
+  
+  String get label {
+    return displayName;
+  }
 
   String get description {
     switch (this) {
@@ -226,33 +230,6 @@ class ServiceRequest {
   }
 }
 
-// 서비스 타입별 한국어 라벨
-extension ServiceTypeExtension on ServiceType {
-  String get label {
-    switch (this) {
-      case ServiceType.childcare:
-        return '돌봄';
-      case ServiceType.eldercare:
-        return '간병';
-      case ServiceType.tutoring:
-        return '튜터링';
-      case ServiceType.counseling:
-        return '심리상담';
-    }
-  }
-  
-  String get description {
-    switch (this) {
-      case ServiceType.childcare:
-        return '아이 돌봄 서비스';
-      case ServiceType.eldercare:
-        return '어르신 간병 서비스';
-      case ServiceType.tutoring:
-        return '학습 지도 서비스';
-      case ServiceType.counseling:
-        return '심리 상담 서비스';
-    }
-  }
-}
+
 
 

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum ReportType {
   user,         // 사용자 신고
   contract,     // 계약 관련 신고

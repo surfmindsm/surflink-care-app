@@ -1,15 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import '../config/app_config.dart';
 import '../models/review.dart';
 
 class ReviewService {
   static final ReviewService _instance = ReviewService._internal();
   factory ReviewService() => _instance;
   ReviewService._internal();
-
-  String get _baseUrl => AppConfig.apiBaseUrl;
 
   // 리뷰 목록 조회 (특정 사용자에 대한 리뷰)
   Future<List<Review>> getReviews({
@@ -460,8 +455,4 @@ class ReviewService {
     return services[index % services.length];
   }
 
-  Future<String?> _getAccessToken() async {
-    // TODO: 실제 토큰 관리 로직
-    return 'mock_access_token';
-  }
 }

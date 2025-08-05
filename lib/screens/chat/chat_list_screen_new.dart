@@ -34,7 +34,7 @@ class _ChatListScreenState extends State<ChatListScreen>
     super.dispose();
   }
 
-  void _loadChatRooms() async {
+  Future<void> _loadChatRooms() async {
     setState(() {
       _isLoading = true;
     });

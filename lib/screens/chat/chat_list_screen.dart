@@ -67,7 +67,7 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
     });
   }
 
-  void _loadChatRooms() async {
+  Future<void> _loadChatRooms() async {
     setState(() {
       _isLoading = true;
     });

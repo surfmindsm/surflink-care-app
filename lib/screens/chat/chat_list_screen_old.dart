@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../models/chat.dart';
-import '../../services/chat_service.dart';
+import '../../config/app_config.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -11,99 +10,65 @@ class ChatListScreen extends StatefulWidget {
   State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStateMixin {
-  final ChatService _chatService = ChatService();
-  
-  late TabController _tabController;
-  List<ChatRoom> _allChatRooms = [];
-  List<ChatRoom> _filteredChatRooms = [];
+class _ChatListScreenState extends State<ChatListScreen> {
+  List<Map<String, dynamic>> _chatRooms = [];
   bool _isLoading = true;
-  
-  final List<String> _tabLabels = [
-    '전체',
-    '매칭',
-    '계약',
-    '지원',
-  ];
-  
-  final List<ChatRoomType?> _tabFilters = [
-    null, // 전체
-    ChatRoomType.matching,
-    ChatRoomType.contract,
-    ChatRoomType.support,
-  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabLabels.length, vsync: this);
-    _tabController.addListener(_onTabChanged);
     _loadChatRooms();
-    _listenToChatUpdates();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  void _onTabChanged() {
-    if (_tabController.indexIsChanging) {
-      _filterChatRooms();
-    }
-  }
-
-  void _filterChatRooms() {
-    final selectedFilter = _tabFilters[_tabController.index];
-    setState(() {
-      if (selectedFilter == null) {
-        _filteredChatRooms = List.from(_allChatRooms);
-      } else {
-        _filteredChatRooms = _allChatRooms
-            .where((room) => room.type == selectedFilter)
-            .toList();
-      }
-    });
-  }
-
-  void _loadChatRooms() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final chatRooms = await _chatService.getChatRooms();
+  void _loadChatRooms() {
+    // TODO: 실제 API 호출로 대체
+    Future.delayed(const Duration(seconds: 1), () {
       setState(() {
-        _allChatRooms = chatRooms;
-        _filterChatRooms();
+        _chatRooms = _getSampleChatRooms();
         _isLoading = false;
       });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('채팅방 목록을 불러오는데 실패했습니다: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    });
   }
 
-  void _listenToChatUpdates() {
-    _chatService.getChatRoomUpdatesStream().listen((updatedRoom) {
-      setState(() {
-        final index = _allChatRooms.indexWhere((room) => room.id == updatedRoom.id);
-        if (index != -1) {
-          _allChatRooms[index] = updatedRoom;
-        } else {
-          _allChatRooms.insert(0, updatedRoom);
-        }
-        _filterChatRooms();
-      });
-    });
+  List<Map<String, dynamic>> _getSampleChatRooms() {
+    return [
+      {
+        'id': '1',
+        'otherUserId': 'user1',
+        'otherUserName': '김선생님',
+        'otherUserImage': null,
+        'lastMessage': '안녕하세요! 의뢰 건에 대해 문의드립니다.',
+        'lastMessageTime': DateTime.now().subtract(const Duration(minutes: 5)),
+        'unreadCount': 2,
+        'isOnline': true,
+        'requestId': 'request1',
+        'requestTitle': '7세 아이 돌봄',
+      },
+      {
+        'id': '2',
+        'otherUserId': 'user2',
+        'otherUserName': '박간병사',
+        'otherUserImage': null,
+        'lastMessage': '네, 언제든 연락주세요.',
+        'lastMessageTime': DateTime.now().subtract(const Duration(hours: 2)),
+        'unreadCount': 0,
+        'isOnline': false,
+        'requestId': 'request2',
+        'requestTitle': '어르신 돌봄',
+      },
+      {
+        'id': '3',
+        'otherUserId': 'user3',
+        'otherUserName': '이상담사',
+        'otherUserImage': null,
+        'lastMessage': '상담 시간 조정 가능할까요?',
+        'lastMessageTime': DateTime.now().subtract(const Duration(days: 1)),
+        'unreadCount': 1,
+        'isOnline': true,
+        'requestId': 'request3',
+        'requestTitle': '심리 상담',
+      },
+    ];
   }
 
   @override
@@ -111,32 +76,89 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
     return Scaffold(
       appBar: AppBar(
         title: const Text('채팅'),
-        backgroundColor: Colors.blue[700],
-        foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-        ),
+        actions: [
+          IconButton(
+            onPressed: _showSearchDialog,
+            icon: const Icon(Icons.search),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refreshChatRooms,
-              child: _filteredChatRooms.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _filteredChatRooms.length,
-                      itemBuilder: (context, index) {
-                        return _ChatRoomCard(
-                          chatRoom: _filteredChatRooms[index],
-                          onTap: () => _navigateToChat(_filteredChatRooms[index]),
-                          onLongPress: () => _showChatRoomOptions(_filteredChatRooms[index]),
-                        );
-                      },
+          : _buildChatList(),
+    );
+  }
+
+  Widget _buildChatList() {
+    if (_chatRooms.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '채팅방이 없습니다',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '의뢰나 지원을 통해 채팅을 시작해보세요',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadChatRooms();
+      },
+      child: ListView.builder(
+        itemCount: _chatRooms.length,
+        itemBuilder: (context, index) {
+          final chatRoom = _chatRooms[index];
+          return _buildChatRoomTile(chatRoom);
+        },
+      ),
+    );
+  }
+
+  Widget _buildChatRoomTile(Map<String, dynamic> chatRoom) {
+    return InkWell(
+      onTap: () => context.push('/chat/${chatRoom['id']}'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppConfig.defaultPadding,
+          vertical: 12,
+        ),
+        child: Row(
+          children: [
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: chatRoom['otherUserImage'] != null
+                      ? NetworkImage(chatRoom['otherUserImage']!)
+                      : null,
+                  child: chatRoom['otherUserImage'] == null
+                      ? Text(
+                          chatRoom['otherUserName'][0],
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
             ),
     );
@@ -250,24 +272,7 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
       setState(() {
         final index = _allChatRooms.indexWhere((room) => room.id == chatRoom.id);
         if (index != -1) {
-          final room = _allChatRooms[index];
-          _allChatRooms[index] = ChatRoom(
-            id: room.id,
-            name: room.name,
-            type: room.type,
-            status: room.status,
-            participantIds: room.participantIds,
-            participants: room.participants,
-            requestId: room.requestId,
-            contractId: room.contractId,
-            matchingId: room.matchingId,
-            lastMessage: room.lastMessage,
-            unreadCount: 0,
-            createdAt: room.createdAt,
-            updatedAt: room.updatedAt,
-            lastActivityAt: room.lastActivityAt,
-            metadata: room.metadata,
-          );
+          _allChatRooms[index] = _allChatRooms[index].copyWith(unreadCount: 0);
           _filterChatRooms();
         }
       });
@@ -603,5 +608,33 @@ class _ChatRoomCard extends StatelessWidget {
     } else {
       return DateFormat('M/d').format(dateTime);
     }
+  }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('사용자 검색'),
+        content: const TextField(
+          decoration: InputDecoration(
+            hintText: '이름을 입력하세요',
+            prefixIcon: Icon(Icons.search),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('검색 기능은 준비 중입니다')),
+              );
+            },
+            child: const Text('검색'),
+          ),
+        ],
+      ),
+    );
   }
 }

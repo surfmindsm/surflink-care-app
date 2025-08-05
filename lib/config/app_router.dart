@@ -12,10 +12,11 @@ import '../screens/request/request_detail_screen.dart';
 import '../screens/freelancer/freelancer_list_screen.dart';
 import '../screens/freelancer/freelancer_detail_screen.dart';
 import '../screens/chat/chat_list_screen.dart';
-import '../screens/chat/chat_detail_screen.dart';
+import '../screens/chat/chat_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../providers/auth_provider.dart';
+import '../models/chat.dart';
 
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -119,10 +120,26 @@ class AppRouter {
           builder: (context, state) => const ChatListScreen(),
         ),
         GoRoute(
-          path: '/chats/:roomId',
+          path: '/chat/:roomId',
           builder: (context, state) {
             final roomId = state.pathParameters['roomId']!;
-            return ChatDetailScreen(chatId: roomId);
+            final chatRoom = state.extra as ChatRoom?;
+            
+            if (chatRoom != null) {
+              return ChatScreen(chatRoom: chatRoom);
+            } else {
+              // ChatRoom 정보가 없을 때의 처리
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('채팅'),
+                  backgroundColor: Colors.blue[700],
+                  foregroundColor: Colors.white,
+                ),
+                body: const Center(
+                  child: Text('채팅방 정보를 불러올 수 없습니다.'),
+                ),
+              );
+            }
           },
         ),
         

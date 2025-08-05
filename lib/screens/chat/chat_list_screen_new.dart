@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/chat.dart';
 import '../../services/chat_service.dart';
+import 'chat_screen.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -11,60 +11,27 @@ class ChatListScreen extends StatefulWidget {
   State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStateMixin {
-  final ChatService _chatService = ChatService();
-  
+class _ChatListScreenState extends State<ChatListScreen>
+    with TickerProviderStateMixin {
   late TabController _tabController;
-  List<ChatRoom> _allChatRooms = [];
-  List<ChatRoom> _filteredChatRooms = [];
+  final ChatService _chatService = ChatService();
+
+  List<ChatRoom> _chatRooms = [];
   bool _isLoading = true;
-  
-  final List<String> _tabLabels = [
-    '전체',
-    '매칭',
-    '계약',
-    '지원',
-  ];
-  
-  final List<ChatRoomType?> _tabFilters = [
-    null, // 전체
-    ChatRoomType.matching,
-    ChatRoomType.contract,
-    ChatRoomType.support,
-  ];
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabLabels.length, vsync: this);
-    _tabController.addListener(_onTabChanged);
+    _tabController = TabController(length: 4, vsync: this);
     _loadChatRooms();
-    _listenToChatUpdates();
+    _listenToChatRoomUpdates();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  void _onTabChanged() {
-    if (_tabController.indexIsChanging) {
-      _filterChatRooms();
-    }
-  }
-
-  void _filterChatRooms() {
-    final selectedFilter = _tabFilters[_tabController.index];
-    setState(() {
-      if (selectedFilter == null) {
-        _filteredChatRooms = List.from(_allChatRooms);
-      } else {
-        _filteredChatRooms = _allChatRooms
-            .where((room) => room.type == selectedFilter)
-            .toList();
-      }
-    });
   }
 
   void _loadChatRooms() async {
@@ -75,8 +42,7 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
     try {
       final chatRooms = await _chatService.getChatRooms();
       setState(() {
-        _allChatRooms = chatRooms;
-        _filterChatRooms();
+        _chatRooms = chatRooms;
         _isLoading = false;
       });
     } catch (e) {
@@ -85,24 +51,38 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('채팅방 목록을 불러오는데 실패했습니다: $e'),
+          content: Text('채팅방 목록 로딩 중 오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  void _listenToChatUpdates() {
-    _chatService.getChatRoomUpdatesStream().listen((updatedRoom) {
+  void _listenToChatRoomUpdates() {
+    _chatService.getChatRoomStream().listen((updatedRoom) {
       setState(() {
-        final index = _allChatRooms.indexWhere((room) => room.id == updatedRoom.id);
+        final index = _chatRooms.indexWhere((room) => room.id == updatedRoom.id);
         if (index != -1) {
-          _allChatRooms[index] = updatedRoom;
+          _chatRooms[index] = updatedRoom;
         } else {
-          _allChatRooms.insert(0, updatedRoom);
+          _chatRooms.insert(0, updatedRoom);
         }
-        _filterChatRooms();
+        // 최신 활동 순으로 정렬
+        _chatRooms.sort((a, b) => 
+          (b.lastActivityAt ?? b.updatedAt).compareTo(a.lastActivityAt ?? a.updatedAt));
       });
+    });
+  }
+
+  Future<void> _refreshChatRooms() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+    
+    await _loadChatRooms();
+    
+    setState(() {
+      _isRefreshing = false;
     });
   }
 
@@ -115,84 +95,105 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
-          tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
+          indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
+          tabs: [
+            Tab(text: '전체 (${_chatRooms.length})'),
+            Tab(text: '매칭 (${_getChatRoomsByType(ChatRoomType.matching).length})'),
+            Tab(text: '계약 (${_getChatRoomsByType(ChatRoomType.contract).length})'),
+            Tab(text: '지원 (${_getChatRoomsByType(ChatRoomType.support).length})'),
+          ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isRefreshing ? null : _refreshChatRooms,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _refreshChatRooms,
-              child: _filteredChatRooms.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _filteredChatRooms.length,
-                      itemBuilder: (context, index) {
-                        return _ChatRoomCard(
-                          chatRoom: _filteredChatRooms[index],
-                          onTap: () => _navigateToChat(_filteredChatRooms[index]),
-                          onLongPress: () => _showChatRoomOptions(_filteredChatRooms[index]),
-                        );
-                      },
-                    ),
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildChatRoomList(null), // 전체
+                  _buildChatRoomList(ChatRoomType.matching),
+                  _buildChatRoomList(ChatRoomType.contract),
+                  _buildChatRoomList(ChatRoomType.support),
+                ],
+              ),
             ),
     );
   }
 
-  Widget _buildEmptyState() {
-    String message;
-    IconData icon;
-    
-    final currentFilter = _tabFilters[_tabController.index];
-    switch (currentFilter) {
-      case ChatRoomType.matching:
-        message = '매칭 채팅이 없습니다';
-        icon = Icons.people;
-        break;
-      case ChatRoomType.contract:
-        message = '계약 채팅이 없습니다';
-        icon = Icons.description;
-        break;
-      case ChatRoomType.support:
-        message = '지원 채팅이 없습니다';
-        icon = Icons.support_agent;
-        break;
-      default:
-        message = '채팅방이 없습니다';
-        icon = Icons.chat;
-    }
-    
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 64,
-            color: Colors.grey[400],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey[600],
+  List<ChatRoom> _getChatRoomsByType(ChatRoomType? type) {
+    if (type == null) return _chatRooms;
+    return _chatRooms.where((room) => room.type == type).toList();
+  }
+
+  Widget _buildChatRoomList(ChatRoomType? type) {
+    final filteredRooms = _getChatRoomsByType(type);
+
+    if (filteredRooms.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 80,
+              color: Colors.grey[400],
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              '채팅방이 없습니다',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              type == null
+                  ? '매칭이 성사되면 채팅방이 생성됩니다'
+                  : '${type.displayName} 채팅방이 없습니다',
+              style: TextStyle(
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: filteredRooms.length,
+      itemBuilder: (context, index) {
+        final chatRoom = filteredRooms[index];
+        return _ChatRoomCard(
+          chatRoom: chatRoom,
+          onTap: () => _openChatRoom(chatRoom),
+          onLongPress: () => _showChatRoomOptions(chatRoom),
+        );
+      },
+    );
+  }
+
+  void _openChatRoom(ChatRoom chatRoom) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(chatRoom: chatRoom),
       ),
     );
-  }
 
-  Future<void> _refreshChatRooms() async {
-    await _loadChatRooms();
-  }
-
-  void _navigateToChat(ChatRoom chatRoom) {
-    context.push('/chat/${chatRoom.id}', extra: chatRoom);
+    if (result == true) {
+      _loadChatRooms();
+    }
   }
 
   void _showChatRoomOptions(ChatRoom chatRoom) {
@@ -221,7 +222,7 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
               ),
               if (chatRoom.type != ChatRoomType.support)
                 ListTile(
-                  leading: const Icon(Icons.report, color: Colors.orange),
+                  leading: const Icon(Icons.report, color: Colors.red),
                   title: const Text('신고하기'),
                   onTap: () {
                     Navigator.pop(context);
@@ -233,7 +234,7 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
                 title: const Text('채팅방 나가기'),
                 onTap: () {
                   Navigator.pop(context);
-                  _showLeaveDialog(chatRoom);
+                  _showLeaveChatRoomDialog(chatRoom);
                 },
               ),
             ],
@@ -246,42 +247,11 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
   void _markAsRead(ChatRoom chatRoom) async {
     try {
       await _chatService.markMessagesAsRead(chatRoom.id);
-      
-      setState(() {
-        final index = _allChatRooms.indexWhere((room) => room.id == chatRoom.id);
-        if (index != -1) {
-          final room = _allChatRooms[index];
-          _allChatRooms[index] = ChatRoom(
-            id: room.id,
-            name: room.name,
-            type: room.type,
-            status: room.status,
-            participantIds: room.participantIds,
-            participants: room.participants,
-            requestId: room.requestId,
-            contractId: room.contractId,
-            matchingId: room.matchingId,
-            lastMessage: room.lastMessage,
-            unreadCount: 0,
-            createdAt: room.createdAt,
-            updatedAt: room.updatedAt,
-            lastActivityAt: room.lastActivityAt,
-            metadata: room.metadata,
-          );
-          _filterChatRooms();
-        }
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('읽음으로 표시했습니다'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _loadChatRooms();
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('읽음 표시에 실패했습니다: $e'),
+          content: Text('읽음 처리 중 오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -301,12 +271,14 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
   }
 
   void _showReportDialog(ChatRoom chatRoom) {
+    final otherParticipant = chatRoom.getOtherParticipant('current_user');
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('사용자 신고'),
-          content: Text('${chatRoom.getOtherParticipant('current_user')?.name ?? '상대방'}님을 신고하시겠습니까?'),
+          content: Text('${otherParticipant?.name ?? '상대방'}님을 신고하시겠습니까?\n\n부적절한 행동이나 발언을 신고해주세요. 신고 내용은 검토 후 적절한 조치가 취해집니다.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -315,7 +287,7 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
-                _reportUser(chatRoom);
+                _reportUser(chatRoom, otherParticipant?.userId ?? '');
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('신고'),
@@ -326,14 +298,11 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
     );
   }
 
-  void _reportUser(ChatRoom chatRoom) async {
+  void _reportUser(ChatRoom chatRoom, String userId) async {
     try {
-      final otherParticipant = chatRoom.getOtherParticipant('current_user');
-      if (otherParticipant == null) return;
-
       final result = await _chatService.reportUser(
         chatRoom.id,
-        otherParticipant.userId,
+        userId,
         '부적절한 행동',
       );
 
@@ -344,24 +313,26 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
             backgroundColor: Colors.green,
           ),
         );
+      } else {
+        throw Exception(result['message']);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('신고에 실패했습니다: $e'),
+          content: Text('신고 중 오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  void _showLeaveDialog(ChatRoom chatRoom) {
+  void _showLeaveChatRoomDialog(ChatRoom chatRoom) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('채팅방 나가기'),
-          content: const Text('채팅방을 나가시겠습니까?\n\n채팅 기록이 삭제되며 복구할 수 없습니다.'),
+          content: const Text('정말로 채팅방을 나가시겠습니까?\n\n채팅방을 나가면 대화 내역을 다시 볼 수 없습니다.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -386,22 +357,20 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
       final result = await _chatService.leaveChatRoom(chatRoom.id);
 
       if (result['success']) {
-        setState(() {
-          _allChatRooms.removeWhere((room) => room.id == chatRoom.id);
-          _filterChatRooms();
-        });
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result['message']),
             backgroundColor: Colors.green,
           ),
         );
+        _loadChatRooms();
+      } else {
+        throw Exception(result['message']);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('채팅방 나가기에 실패했습니다: $e'),
+          content: Text('채팅방 나가기 중 오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -425,41 +394,42 @@ class _ChatRoomCard extends StatelessWidget {
     final otherParticipant = chatRoom.getOtherParticipant('current_user');
     
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // 프로필 이미지 및 온라인 상태
+              // 프로필 이미지
               Stack(
                 children: [
                   CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.grey[300],
+                    radius: 28,
+                    backgroundColor: Colors.blue[100],
                     backgroundImage: otherParticipant?.profileImageUrl != null
                         ? NetworkImage(otherParticipant!.profileImageUrl!)
                         : null,
                     child: otherParticipant?.profileImageUrl == null
                         ? Text(
                             otherParticipant?.name.substring(0, 1) ?? '?',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: Colors.blue[700],
+                              fontSize: 18,
                             ),
                           )
                         : null,
                   ),
+                  // 온라인 상태 표시
                   if (otherParticipant?.isOnline == true)
                     Positioned(
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        width: 14,
-                        height: 14,
+                        width: 16,
+                        height: 16,
                         decoration: BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
@@ -471,7 +441,7 @@ class _ChatRoomCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               
-              // 채팅방 정보
+              // 채팅 정보
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,25 +452,25 @@ class _ChatRoomCard extends StatelessWidget {
                           child: Text(
                             chatRoom.name,
                             style: const TextStyle(
-                              fontWeight: FontWeight.bold,
                               fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        // 채팅방 타입 뱃지
+                        // 채팅방 타입 배지
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: chatRoom.type.color.withOpacity(0.1),
+                            color: _getChatRoomTypeColor(chatRoom.type).withOpacity(0.1),
+                            border: Border.all(color: _getChatRoomTypeColor(chatRoom.type)),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            chatRoom.type.displayName,
+                            _getChatRoomTypeText(chatRoom.type),
                             style: TextStyle(
-                              color: chatRoom.type.color,
+                              color: _getChatRoomTypeColor(chatRoom.type),
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
                             ),
@@ -510,74 +480,60 @@ class _ChatRoomCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     
+                    // 마지막 메시지
+                    Text(
+                      chatRoom.lastMessage?.displayContent ?? '대화를 시작해보세요',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    // 시간과 상태 정보
                     Row(
                       children: [
-                        // 메시지 타입 아이콘
-                        if (chatRoom.lastMessage != null)
-                          Icon(
-                            chatRoom.lastMessage!.type.icon,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                        if (chatRoom.lastMessage != null)
-                          const SizedBox(width: 4),
-                        
-                        // 마지막 메시지
-                        Expanded(
-                          child: Text(
-                            chatRoom.lastMessage?.content ?? '메시지가 없습니다',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 14,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          _formatLastMessageTime(chatRoom.lastMessage?.createdAt ?? chatRoom.updatedAt),
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 12,
                           ),
                         ),
+                        if (otherParticipant?.isOnline == false && otherParticipant?.lastSeenAt != null) ...[
+                          Text(
+                            ' • ${_formatLastSeen(otherParticipant!.lastSeenAt!)}',
+                            style: TextStyle(
+                              color: Colors.grey[500],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        
+                        // 읽지 않은 메시지 수
+                        if (chatRoom.hasUnreadMessages())
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              chatRoom.unreadCount > 99 ? '99+' : '${chatRoom.unreadCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],
                 ),
-              ),
-              
-              const SizedBox(width: 8),
-              
-              // 시간 및 읽지 않은 메시지 수
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _formatTime(chatRoom.updatedAt),
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (chatRoom.unreadCount > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      constraints: const BoxConstraints(minWidth: 20),
-                      child: Text(
-                        chatRoom.unreadCount > 99
-                            ? '99+'
-                            : chatRoom.unreadCount.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                ],
               ),
             ],
           ),
@@ -586,22 +542,57 @@ class _ChatRoomCard extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime dateTime) {
+  Color _getChatRoomTypeColor(ChatRoomType type) {
+    switch (type) {
+      case ChatRoomType.matching:
+        return Colors.blue;
+      case ChatRoomType.contract:
+        return Colors.green;
+      case ChatRoomType.support:
+        return Colors.orange;
+    }
+  }
+
+  String _getChatRoomTypeText(ChatRoomType type) {
+    switch (type) {
+      case ChatRoomType.matching:
+        return '매칭';
+      case ChatRoomType.contract:
+        return '계약';
+      case ChatRoomType.support:
+        return '지원';
+    }
+  }
+
+  String _formatLastMessageTime(DateTime dateTime) {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
     final difference = now.difference(dateTime);
-    
+
     if (difference.inMinutes < 1) {
       return '방금 전';
     } else if (difference.inHours < 1) {
       return '${difference.inMinutes}분 전';
-    } else if (messageDate == today) {
+    } else if (difference.inDays < 1) {
       return DateFormat('HH:mm').format(dateTime);
     } else if (difference.inDays < 7) {
-      return DateFormat('E요일', 'ko_KR').format(dateTime);
+      return DateFormat('E HH:mm', 'ko_KR').format(dateTime);
     } else {
-      return DateFormat('M/d').format(dateTime);
+      return DateFormat('MM/dd').format(dateTime);
+    }
+  }
+
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final difference = now.difference(lastSeen);
+
+    if (difference.inMinutes < 1) {
+      return '방금 접속';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}분 전 접속';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}시간 전 접속';
+    } else {
+      return '${difference.inDays}일 전 접속';
     }
   }
 }

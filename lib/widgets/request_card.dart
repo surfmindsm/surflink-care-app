@@ -173,13 +173,16 @@ class RequestCard extends StatelessWidget {
   Widget _buildStatusChip() {
     Color color;
     switch (request.status) {
+      case RequestStatus.draft:
+        color = Colors.grey;
+        break;
       case RequestStatus.pending:
         color = Colors.orange;
         break;
       case RequestStatus.matched:
         color = Colors.blue;
         break;
-      case RequestStatus.inProgress:
+      case RequestStatus.in_progress:
         color = Colors.purple;
         break;
       case RequestStatus.completed:

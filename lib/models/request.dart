@@ -61,6 +61,10 @@ extension RequestStatusExtension on RequestStatus {
         return '취소됨';
     }
   }
+  
+  String get label {
+    return displayName;
+  }
 
   Color get color {
     switch (this) {

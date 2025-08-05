@@ -149,13 +149,16 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
   Widget _buildStatusCard() {
     Color statusColor;
     switch (_request!.status) {
+      case RequestStatus.draft:
+        statusColor = Colors.grey;
+        break;
       case RequestStatus.pending:
         statusColor = Colors.orange;
         break;
       case RequestStatus.matched:
         statusColor = Colors.blue;
         break;
-      case RequestStatus.inProgress:
+      case RequestStatus.in_progress:
         statusColor = Colors.purple;
         break;
       case RequestStatus.completed:

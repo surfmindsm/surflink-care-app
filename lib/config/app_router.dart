@@ -15,6 +15,10 @@ import '../screens/chat/chat_list_screen.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/splash/splash_screen.dart';
+import '../screens/payment/payment_screen.dart';
+import '../screens/notification/notification_screen.dart';
+import '../screens/report/report_screen.dart';
+import '../screens/report/report_create_screen.dart';
 import '../providers/auth_provider.dart';
 import '../models/chat.dart';
 
@@ -141,6 +145,28 @@ class AppRouter {
               );
             }
           },
+        ),
+        
+        // Payment Routes
+        GoRoute(
+          path: '/payment',
+          builder: (context, state) => const PaymentScreen(),
+        ),
+        
+        // Notification Routes
+        GoRoute(
+          path: '/notifications',
+          builder: (context, state) => const NotificationScreen(),
+        ),
+        
+        // Report Routes
+        GoRoute(
+          path: '/reports',
+          builder: (context, state) => const ReportScreen(),
+        ),
+        GoRoute(
+          path: '/reports/create',
+          builder: (context, state) => const ReportCreateScreen(),
         ),
         
         // Settings

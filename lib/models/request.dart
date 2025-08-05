@@ -5,6 +5,21 @@ enum ServiceType {
   counseling // 심리상담
 }
 
+extension ServiceTypeExtension on ServiceType {
+  String get displayName {
+    switch (this) {
+      case ServiceType.childcare:
+        return '돌봄';
+      case ServiceType.eldercare:
+        return '간병';
+      case ServiceType.tutoring:
+        return '튜터링';
+      case ServiceType.counseling:
+        return '심리상담';
+    }
+  }
+}
+
 enum RequestStatus {
   pending, // 매칭대기
   matched, // 매칭완료

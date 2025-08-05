@@ -68,13 +68,14 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       email: 'customer@example.com',
       name: '김고객',
       phone: '010-1234-5678',
-      type: UserType.customer,
+      userType: UserType.customer,
       status: UserStatus.active,
-      profileImage: null,
+      profileImageUrl: null,
       region: '강남구',
       rating: 4.8,
       reviewCount: 25,
       createdAt: DateTime.now().subtract(const Duration(days: 30)),
+      updatedAt: DateTime.now().subtract(const Duration(days: 30)),
     );
   }
 

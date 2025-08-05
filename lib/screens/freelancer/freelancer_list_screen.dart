@@ -64,25 +64,26 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
         email: 'teacher1@example.com',
         name: '김선생님',
         phone: '010-1111-1111',
-        type: UserType.freelancer,
+        userType: UserType.freelancer,
         status: UserStatus.active,
-        profileImage: null,
+        profileImageUrl: null,
         region: '강남구',
         rating: 4.8,
         reviewCount: 42,
         specialties: ['childcare', 'tutoring'],
         careerYears: 5,
-        introduction: '아이들을 사랑하는 마음으로 정성껏 돌보겠습니다.',
+        introduction: '아이들을 사랑하는 마음으로 정성껓 돌보겠습니다.',
         createdAt: DateTime.now().subtract(const Duration(days: 100)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 100)),
       ),
       User(
         id: 'freelancer2',
         email: 'caregiver1@example.com',
         name: '박간병사',
         phone: '010-2222-2222',
-        type: UserType.freelancer,
+        userType: UserType.freelancer,
         status: UserStatus.active,
-        profileImage: null,
+        profileImageUrl: null,
         region: '서초구',
         rating: 4.9,
         reviewCount: 38,
@@ -90,15 +91,16 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
         careerYears: 8,
         introduction: '어르신들을 가족처럼 생각하며 섬기겠습니다.',
         createdAt: DateTime.now().subtract(const Duration(days: 80)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 80)),
       ),
       User(
         id: 'freelancer3',
         email: 'counselor1@example.com',
         name: '이상담사',
         phone: '010-3333-3333',
-        type: UserType.freelancer,
+        userType: UserType.freelancer,
         status: UserStatus.active,
-        profileImage: null,
+        profileImageUrl: null,
         region: '강남구',
         rating: 4.7,
         reviewCount: 21,
@@ -106,6 +108,7 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
         careerYears: 3,
         introduction: '진심어린 마음으로 상담해드리겠습니다.',
         createdAt: DateTime.now().subtract(const Duration(days: 60)),
+        updatedAt: DateTime.now().subtract(const Duration(days: 60)),
       ),
     ];
   }
@@ -191,6 +194,7 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
                 label: Text(_selectedServiceType!.label),
+                onSelected: (value) {},
                 onDeleted: () {
                   setState(() {
                     _selectedServiceType = null;
@@ -204,6 +208,7 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
                 label: Text(_selectedRegion!),
+                onSelected: (value) {},
                 onDeleted: () {
                   setState(() {
                     _selectedRegion = null;
@@ -217,6 +222,7 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
                 label: Text('★ $_minRating 이상'),
+                onSelected: (value) {},
                 onDeleted: () {
                   setState(() {
                     _minRating = null;

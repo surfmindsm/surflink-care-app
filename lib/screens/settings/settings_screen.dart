@@ -143,13 +143,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ProfileMenuItem(
                 icon: Icons.logout,
                 title: '로그아웃',
-                titleColor: Colors.red,
+                textColor: Colors.red,
                 onTap: () => _showLogoutDialog(),
               ),
               ProfileMenuItem(
                 icon: Icons.delete_outline,
                 title: '회원탈퇴',
-                titleColor: Colors.red,
+                textColor: Colors.red,
                 onTap: () => _showDeleteAccountDialog(),
               ),
             ],

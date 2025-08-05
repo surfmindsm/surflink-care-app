@@ -113,7 +113,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
 
   Widget _buildDocumentViewer() {
     final fileExtension = widget.documentUrl.split('.').last.toLowerCase();
-    
+
     if (_isImageFile(fileExtension)) {
       return _buildImageViewer();
     } else if (fileExtension == 'pdf') {
@@ -176,8 +176,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           Text(
             'PDF 문서',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -281,8 +281,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           Text(
             fileType,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -304,7 +304,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             child: Column(
               children: [
                 Icon(
-                  Icons.warning_outline,
+                  Icons.warning_amber,
                   color: Colors.orange[700],
                   size: 32,
                 ),

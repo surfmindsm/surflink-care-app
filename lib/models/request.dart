@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum ServiceType { 
   childcare, // 돌봄
   eldercare, // 간병
@@ -9,23 +11,73 @@ extension ServiceTypeExtension on ServiceType {
   String get displayName {
     switch (this) {
       case ServiceType.childcare:
-        return '돌봄';
+        return '아이돌봄';
       case ServiceType.eldercare:
-        return '간병';
+        return '어르신돌봄';
       case ServiceType.tutoring:
-        return '튜터링';
+        return '과외/교육';
       case ServiceType.counseling:
-        return '심리상담';
+        return '상담';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case ServiceType.childcare:
+        return '아이 돌봄, 육아 도움';
+      case ServiceType.eldercare:
+        return '어르신 간병, 생활 지원';
+      case ServiceType.tutoring:
+        return '학습 지도, 과외';
+      case ServiceType.counseling:
+        return '심리상담, 치료';
     }
   }
 }
 
 enum RequestStatus {
+  draft,
   pending, // 매칭대기
   matched, // 매칭완료
-  inProgress, // 진행중
+  in_progress, // 진행중
   completed, // 완료
   cancelled // 취소
+}
+
+extension RequestStatusExtension on RequestStatus {
+  String get displayName {
+    switch (this) {
+      case RequestStatus.draft:
+        return '임시저장';
+      case RequestStatus.pending:
+        return '매칭중';
+      case RequestStatus.matched:
+        return '매칭완료';
+      case RequestStatus.in_progress:
+        return '진행중';
+      case RequestStatus.completed:
+        return '완료';
+      case RequestStatus.cancelled:
+        return '취소됨';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case RequestStatus.draft:
+        return Colors.grey;
+      case RequestStatus.pending:
+        return Colors.blue;
+      case RequestStatus.matched:
+        return Colors.green;
+      case RequestStatus.in_progress:
+        return Colors.orange;
+      case RequestStatus.completed:
+        return Colors.teal;
+      case RequestStatus.cancelled:
+        return Colors.red;
+    }
+  }
 }
 
 class ServiceRequest {
@@ -199,20 +251,4 @@ extension ServiceTypeExtension on ServiceType {
   }
 }
 
-// 요청 상태별 한국어 라벨
-extension RequestStatusExtension on RequestStatus {
-  String get label {
-    switch (this) {
-      case RequestStatus.pending:
-        return '매칭대기';
-      case RequestStatus.matched:
-        return '매칭완료';
-      case RequestStatus.inProgress:
-        return '진행중';
-      case RequestStatus.completed:
-        return '완료';
-      case RequestStatus.cancelled:
-        return '취소';
-    }
-  }
-}
+

@@ -84,13 +84,28 @@ class ApiService {
   // Supabase Edge Function 호출
   Future<Map<String, dynamic>> invokeFunction(String functionName, {Map<String, dynamic>? body}) async {
     try {
+      print('Edge Function 호출: $functionName');
+      print('요청 데이터: $body');
+      
       final response = await _supabase.functions.invoke(
         functionName,
         body: body,
       );
-      return response.data;
+      
+      print('Edge Function 응답 상태: ${response.status}');
+      print('Edge Function 응답 데이터: ${response.data}');
+      
+      return response.data ?? {};
     } catch (e) {
       print('Supabase Function Error: $e');
+      print('Function name: $functionName');
+      print('Request body: $body');
+      
+      // FunctionException의 세부 정보 추출
+      if (e.toString().contains('FunctionException')) {
+        print('상세 에러 정보: ${e.toString()}');
+      }
+      
       rethrow;
     }
   }

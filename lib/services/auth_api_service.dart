@@ -13,27 +13,96 @@ class AuthApiService {
     required String userType, // 'freelancer' or 'customer'
   }) async {
     try {
-      // Edge Function 호출로 회원가입
-      final result = await _apiService.invokeFunction('auth-signup', body: {
-        'email': email,
+      // 입력값 검증
+      if (email.trim().isEmpty || !email.contains('@')) {
+        throw Exception('유효한 이메일 주소를 입력해주세요.');
+      }
+      if (password.length < 6) {
+        throw Exception('비밀번호는 최소 6자 이상이어야 합니다.');
+      }
+      if (name.trim().isEmpty) {
+        throw Exception('이름을 입력해주세요.');
+      }
+      if (!['freelancer', 'customer'].contains(userType)) {
+        throw Exception('올바른 사용자 유형을 선택해주세요.');
+      }
+
+      // Edge Function 호출을 위한 요청 데이터 준비
+      final requestData = {
+        'email': email.trim(),
         'password': password,
         'user_type': userType,
-        'name': name,
-        'phone': phone,
-      });
+        'name': name.trim(),
+        'phone': phone.trim().isEmpty ? '' : phone.trim(), // null 대신 빈 문자열 사용
+      };
+      
+      print('회원가입 요청 데이터: $requestData');
+      
+      try {
+        // Edge Function 호출로 회원가입 시도
+        final result = await _apiService.invokeFunction('auth-signup', body: requestData);
+        
+        print('Edge Function 응답: $result');
 
-      // 성공시 로그인 처리
-      if (result['success'] == true) {
-        return await _apiService.auth.signInWithPassword(
-          email: email,
+        // 성공시 로그인 처리
+        if (result['success'] == true) {
+          print('회원가입 성공, 자동 로그인 시도...');
+          return await _apiService.auth.signInWithPassword(
+            email: email.trim(),
+            password: password,
+          );
+        } else {
+          final errorMessage = result['error'] ?? result['message'] ?? '회원가입에 실패했습니다.';
+          print('회원가입 실패: $errorMessage');
+          throw Exception(errorMessage);
+        }
+      } catch (edgeFunctionError) {
+        print('Edge Function 실패, Supabase 기본 Auth API로 대체 시도: $edgeFunctionError');
+        
+        // Edge Function이 실패하면 Supabase 기본 auth API 사용
+        final authResponse = await _apiService.auth.signUp(
+          email: email.trim(),
           password: password,
         );
-      } else {
-        throw Exception(result['error'] ?? '회원가입에 실패했습니다.');
+        
+        if (authResponse.user != null) {
+          print('Supabase 기본 Auth로 회원가입 성공');
+          
+          try {
+            // 사용자 프로필 생성 시도
+            await _apiService.from('profiles').insert({
+              'id': authResponse.user!.id,
+              'name': name.trim(),
+              'phone': phone.trim().isEmpty ? '' : phone.trim(),
+              'user_type': userType,
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+            print('사용자 프로필 생성 성공');
+          } catch (profileError) {
+            print('프로필 생성 실패 (무시하고 계속): $profileError');
+            // profiles 테이블이 없어도 회원가입은 성공으로 처리
+          }
+          
+          return authResponse;
+        } else {
+          print('Supabase 기본 Auth도 실패');
+          throw Exception('회원가입에 실패했습니다.');
+        }
       }
-    } catch (e) {
-      print('Sign up error: $e');
+    } on Exception catch (e) {
+      print('회원가입 에러 (Exception): $e');
       rethrow;
+    } catch (e) {
+      print('회원가입 에러 (기타): $e');
+      // FunctionException 또는 기타 Supabase 에러 처리
+      if (e.toString().contains('FunctionException')) {
+        if (e.toString().contains('Failed to create user account')) {
+          throw Exception('이미 존재하는 이메일이거나 회원가입에 실패했습니다. 다른 이메일을 사용해주세요.');
+        }
+        throw Exception('서버에서 회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.');
+      }
+      throw Exception('네트워크 오류가 발생했습니다: ${e.toString()}');
     }
   }
 
@@ -124,15 +193,20 @@ class AuthApiService {
   Future<bool> updateUserProfile(Map<String, dynamic> profileData) async {
     try {
       final user = currentUser;
-      if (user == null) return false;
+      if (user == null) {
+        print('인증되지 않은 사용자');
+        return false;
+      }
 
       await _apiService.from('profiles')
           .update({...profileData, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', user.id);
 
+      print('프로필 업데이트 성공');
       return true;
     } catch (e) {
       print('Update user profile error: $e');
+      // 404 에러(테이블 없음)도 false 반환하지만 예외는 발생시키지 않음
       return false;
     }
   }

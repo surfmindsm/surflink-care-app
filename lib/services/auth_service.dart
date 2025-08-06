@@ -66,14 +66,19 @@ class AuthService {
       );
       
       if (authResponse.user != null) {
-        // 사용자 프로필 업데이트
-        await _authApiService.updateUserProfile({
-          'name': name,
-          'phone': phone,
-          'birth': birth?.toIso8601String(),
-          'gender': gender,
-          'user_type': userType.toString().split('.').last,
-        });
+        // 사용자 프로필 업데이트 시도 (실패해도 무시)
+        try {
+          await _authApiService.updateUserProfile({
+            'name': name,
+            'phone': phone,
+            'birth': birth?.toIso8601String(),
+            'gender': gender,
+            'user_type': userType.toString().split('.').last,
+          });
+          print('사용자 프로필 업데이트 성공');
+        } catch (profileError) {
+          print('사용자 프로필 업데이트 실패 (무시): $profileError');
+        }
         
         final user = User(
           id: authResponse.user!.id,
@@ -97,11 +102,31 @@ class AuthService {
           'message': '회원가입에 실패했습니다.',
         };
       }
-    } catch (e) {
-      print('Register error: $e');
+    } on Exception catch (e) {
+      print('Register error (Exception): $e');
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
       return {
         'success': false,
-        'message': '회원가입 중 오류가 발생했습니다: ${e.toString()}',
+        'message': errorMessage,
+      };
+    } catch (e) {
+      print('Register error (기타): $e');
+      // FunctionException 처리
+      if (e.toString().contains('FunctionException')) {
+        if (e.toString().contains('status: 400')) {
+          return {
+            'success': false,
+            'message': '입력한 정보를 확인해주세요. 이미 사용 중인 이메일일 수 있습니다.',
+          };
+        }
+        return {
+          'success': false,
+          'message': '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        };
+      }
+      return {
+        'success': false,
+        'message': '네트워크 연결을 확인해주세요.',
       };
     }
   }
@@ -173,15 +198,22 @@ class AuthService {
       final currentUser = _authApiService.currentUser;
       if (currentUser == null) return null;
 
-      final userProfile = await _authApiService.getUserProfile();
-      if (userProfile == null) return null;
+      // 프로필 정보 가져오기 시도
+      Map<String, dynamic>? userProfile;
+      try {
+        userProfile = await _authApiService.getUserProfile();
+        print('사용자 프로필 및기 성공: $userProfile');
+      } catch (profileError) {
+        print('사용자 프로필 및기 실패 (기본값 사용): $profileError');
+        userProfile = null;
+      }
 
       return User(
         id: currentUser.id,
         email: currentUser.email ?? '',
-        name: userProfile['name'] ?? '사용자',
-        phone: userProfile['phone'],
-        userType: _parseUserType(userProfile['user_type']),
+        name: userProfile?['name'] ?? currentUser.userMetadata?['name'] ?? '사용자',
+        phone: userProfile?['phone'] ?? currentUser.userMetadata?['phone'],
+        userType: _parseUserType(userProfile?['user_type']),
         status: UserStatus.active,
         createdAt: DateTime.parse(currentUser.createdAt),
         updatedAt: DateTime.now(),

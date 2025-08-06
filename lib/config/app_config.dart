@@ -15,8 +15,8 @@ class AppConfig {
   // API Endpoints - API 문서 기준
   static const String authSignupEndpoint = '/functions/v1/auth-signup';  // 회원가입 Edge Function
   static const String authTokenEndpoint = '/auth/v1/token';            // 로그인
-  static const String sendEmailCodeEndpoint = '/send-email-code';      // 이메일 인증코드 발송
-  static const String verifyEmailCodeEndpoint = '/verify-email-code';  // 이메일 인증코드 검증
+  static const String sendEmailCodeEndpoint = '/functions/v1/send-email-code';      // 이메일 인증코드 발송
+  static const String verifyEmailCodeEndpoint = '/functions/v1/verify-email-code';  // 이메일 인증코드 검증
   static const String createRequestEndpoint = '/functions/v1/create-request'; // 의뢰 생성
   static const String serviceRequestsEndpoint = '/rest/v1/service_requests';   // 의뢰 REST API
   static const String matchingsEndpoint = '/rest/v1/matchings';              // 매칭 REST API

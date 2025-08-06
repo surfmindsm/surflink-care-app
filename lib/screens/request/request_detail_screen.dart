@@ -7,6 +7,7 @@ import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/app_config.dart';
 import '../../widgets/loading_button.dart';
+import '../../utils/navigation_utils.dart';
 
 class RequestDetailScreen extends StatefulWidget {
   final String requestId;
@@ -100,6 +101,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: NavigationUtils.buildBackButton(context),
         title: const Text('의뢰 상세'),
         actions: [
           if (user?.id == _request!.customerId)

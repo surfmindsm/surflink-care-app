@@ -59,6 +59,10 @@ class _ContractCreationScreenState extends State<ContractCreationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('계약서 작성'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,

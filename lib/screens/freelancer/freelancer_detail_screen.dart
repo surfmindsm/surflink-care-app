@@ -129,6 +129,10 @@ class _FreelancerDetailScreenState extends State<FreelancerDetailScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
               expandedHeight: 300,
               floating: false,
               pinned: true,

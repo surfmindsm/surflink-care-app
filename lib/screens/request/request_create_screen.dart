@@ -86,6 +86,10 @@ class _RequestCreateScreenState extends State<RequestCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(widget.existingRequest != null ? '의뢰 수정' : '의뢰 등록'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,

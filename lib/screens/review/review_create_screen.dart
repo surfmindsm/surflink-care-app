@@ -99,6 +99,10 @@ class _ReviewCreateScreenState extends State<ReviewCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(widget.existingReview != null ? '리뷰 수정' : '리뷰 작성'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,

@@ -144,6 +144,10 @@ class _ActivityScreenState extends State<ActivityScreen> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('활동 내역'),
         backgroundColor: Color(AppConfig.primaryColor),
         foregroundColor: Colors.white,

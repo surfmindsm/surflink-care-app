@@ -100,6 +100,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              context.go('/home');
+            }
+          },
+        ),
         title: const Text('프로필 수정'),
         actions: [
           TextButton(

@@ -1,3 +1,5 @@
+// 이메일 인증 화면 (사용 안 함 - 도메인 구매 필요)
+/*
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -414,3 +416,4 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     );
   }
 }
+*/

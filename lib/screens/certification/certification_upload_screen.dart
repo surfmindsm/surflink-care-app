@@ -55,6 +55,10 @@ class _CertificationUploadScreenState extends State<CertificationUploadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(widget.existingCertification != null ? '인증서류 수정' : '인증서류 등록'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,

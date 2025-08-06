@@ -91,6 +91,10 @@ class _SettlementScreenState extends State<SettlementScreen> with SingleTickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('정산/수익 관리'),
         backgroundColor: Color(AppConfig.primaryColor),
         foregroundColor: Colors.white,

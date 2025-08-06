@@ -67,6 +67,10 @@ class _MatchingRequestScreenState extends State<MatchingRequestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('매칭 요청'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,

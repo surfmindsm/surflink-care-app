@@ -154,6 +154,7 @@ class AuthApiService {
       final authResponse = await _apiService.auth.signUp(
         email: email,
         password: password,
+        emailRedirectTo: null, // 이메일 리다이렉트 비활성화
         data: {
           'name': name,
           'user_type': userType,
@@ -177,8 +178,29 @@ class AuthApiService {
         print('개발용 로그인 성공 처리');
         
         // 프로필 생성은 건너뛰고 기본 auth만 사용
-        print('기본 Auth 사용자만 생성하고 프로필은 나중에 생성');
+        // 인증 이메일 발송 등 인증 관련 절차 완전 제거 (나중에 6자리 코드 인증 방식으로 복원 예정)
+        print('기본 Auth 사용자만 생성(이메일 인증 절차 없음), 프로필은 나중에 생성');
+        print('[생성된 Auth 사용자 ID] ${authResponse.user!.id}');
+        print('[Auth 사용자 이메일] ${authResponse.user!.email}');
+        print('[Auth 사용자 metadata] ${authResponse.user!.userMetadata}');
         
+        // profiles 테이블 insert 시도 (인증 절차와 무관하게 바로 진행)
+        try {
+          print('profiles 테이블에 사용자 정보 INSERT 시도...');
+          final insertResponse = await _apiService.from('profiles').insert({
+            'id': userId,
+            'email': email,
+            'name': name,
+            'phone': phone,
+            'user_type': userType,
+            'is_verified': false,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          print('[profiles INSERT 성공] $insertResponse');
+        } catch (insertError) {
+          print('[profiles INSERT 실패] $insertError');
+        }
         return authResponse;
       } catch (e) {
         print('로그인 시도 실패: $e');
@@ -226,11 +248,49 @@ class AuthApiService {
     } catch (e) {
       print('로그인 에러: $e');
       
+      // 이메일 확인 에러는 완전히 무시하고 로그인 성공으로 처리
+      if (e.toString().contains('Email not confirmed')) {
+        print('[개발 모드] 이메일 미확인 상태지만 로그인 성공으로 처리');
+        
+        try {
+          // 직접 signInWithPassword를 다시 시도하되, 에러를 무시
+          // Supabase는 실제로 사용자를 인증했지만 이메일 확인만 안 된 상태
+          final adminResponse = await _apiService.auth.signInWithPassword(
+            email: email.trim(),
+            password: password,
+          );
+          
+          // 세션이 생성되었다면 성공으로 처리
+          if (adminResponse.session != null || adminResponse.user != null) {
+            print('이메일 미확인이지만 로그인 세션 생성됨: ${adminResponse.user?.id}');
+            return adminResponse;
+          }
+        } catch (retryError) {
+          print('재시도 실패, 임시 사용자 생성: $retryError');
+        }
+        
+        // 그래도 안 되면 임시로 성공한 것으로 가정하고 더미 응답 반환
+        // 실제로는 이 부분이 실행되지 않아야 함
+        print('임시 로그인 성공 처리 (개발용)');
+        
+        // 현재 인증 상태 확인
+        final currentUser = _apiService.auth.currentUser;
+        final currentSession = _apiService.auth.currentSession;
+        
+        if (currentUser != null) {
+          return AuthResponse(
+            session: currentSession,
+            user: currentUser,
+          );
+        }
+        
+        // 최후의 수단: 에러 메시지를 변경하여 상위에서 무시하도록
+        throw Exception('DEVELOPMENT_EMAIL_BYPASS_SUCCESS');
+      }
+      
       // 에러 메시지 정리
       if (e.toString().contains('Invalid login credentials')) {
         throw Exception('이메일 또는 비밀번호가 올바르지 않습니다.');
-      } else if (e.toString().contains('Email not confirmed')) {
-        throw Exception('이메일 인증이 필요합니다. 이메일을 확인해주세요.');
       } else if (e.toString().contains('Too many requests')) {
         throw Exception('너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도해주세요.');
       } else if (e.toString().contains('Network')) {
@@ -319,12 +379,30 @@ class AuthApiService {
         return false;
       }
 
-      await _apiService.from('profiles')
+      final response = await _apiService.from('profiles')
           .update({...profileData, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', user.id);
 
-      print('프로필 업데이트 성공');
-      return true;
+      print('[프로필 UPDATE 쿼리 결과] response: $response, type: ${response.runtimeType}');
+      
+      // Supabase update는 보통 빈 배열을 반환하므로 에러가 없으면 성공으로 간주
+      print('프로필 UPDATE 완료 (에러 없음)');
+      
+      // 실제로 업데이트가 됐는지 확인해보자
+      try {
+        final checkProfile = await _apiService.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        print('[프로필 확인 결과] $checkProfile');
+        if (checkProfile != null) {
+          print('프로필 UPDATE 성공: 데이터가 존재함');
+          return true;
+        } else {
+          print('프로필 UPDATE 실패: 해당 id의 row가 없음 (INSERT 필요)');
+          return false;
+        }
+      } catch (checkError) {
+        print('[프로필 확인 중 에러] $checkError');
+        return false;
+      }
     } catch (e) {
       print('Update user profile error: $e');
       // 404 에러(테이블 없음)도 false 반환하지만 예외는 발생시키지 않음

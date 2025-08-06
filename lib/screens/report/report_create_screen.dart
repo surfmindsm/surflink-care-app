@@ -49,6 +49,10 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('신고/문의하기'),
         actions: [
           TextButton(

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRIFREE API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        body {
+            margin: 0;
+            background: #fafafa;
+        }
+        .topbar {
+            display: none;
+        }
+        #custom-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        #custom-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        #custom-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        .info-section {
+            background: white;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .info-section h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .auth-info {
+            background: #f0f4ff;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            margin: 15px 0;
+        }
+        .auth-info code {
+            background: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            color: #e53e3e;
+        }
+        .endpoint-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .endpoint-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+        .endpoint-card h3 {
+            margin: 0 0 10px 0;
+            color: #2d3748;
+            font-size: 1.1rem;
+        }
+        .endpoint-card ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        .endpoint-card li {
+            margin: 5px 0;
+            color: #4a5568;
+        }
+        .method-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .method-post { background: #49cc90; color: white; }
+        .method-get { background: #61affe; color: white; }
+        .method-put { background: #fca130; color: white; }
+        .method-delete { background: #f93e3e; color: white; }
+    </style>
+</head>
+<body>
+    <div id="custom-header">
+        <h1>🚀 PRIFREE API Documentation</h1>
+        <p>프리랜서 매칭 플랫폼 - Supabase Edge Functions & REST API</p>
+    </div>
+
+    <div class="info-section">
+        <h2>🔑 인증 방법</h2>
+        <div class="auth-info">
+            <p><strong>API Key (Anon Key):</strong></p>
+            <code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlcHJycmJxaHVmaGR1dmJ6ZnR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NTUwNTQsImV4cCI6MjA3MDAzMTA1NH0.Bt5eTr4ZYT9jpYex_wFFqLr4rk9_yZBi5So-o9K0m9w</code>
+            <p style="margin-top: 10px;">모든 API 요청에 <code>Authorization: Bearer [API_KEY]</code> 헤더를 포함해야 합니다.</p>
+        </div>
+    </div>
+
+    <div class="info-section">
+        <h2>📍 API 엔드포인트</h2>
+        
+        <div class="endpoint-list">
+            <div class="endpoint-card">
+                <h3>🔐 인증 (Auth)</h3>
+                <ul>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/auth-signup</li>
+                    <li><span class="method-badge method-post">POST</span> /auth/v1/token</li>
+                    <li><span class="method-badge method-post">POST</span> /auth/v1/signup</li>
+                </ul>
+            </div>
+
+            <div class="endpoint-card">
+                <h3>📋 서비스 의뢰</h3>
+                <ul>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/create-request</li>
+                    <li><span class="method-badge method-get">GET</span> /rest/v1/service_requests</li>
+                    <li><span class="method-badge method-post">POST</span> /rest/v1/service_requests</li>
+                </ul>
+            </div>
+
+            <div class="endpoint-card">
+                <h3>🤝 매칭</h3>
+                <ul>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/create-matching</li>
+                    <li><span class="method-badge method-get">GET</span> /rest/v1/matchings</li>
+                </ul>
+            </div>
+
+            <div class="endpoint-card">
+                <h3>💳 결제</h3>
+                <ul>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/process-payment</li>
+                    <li><span class="method-badge method-get">GET</span> /rest/v1/payments</li>
+                </ul>
+            </div>
+
+            <div class="endpoint-card">
+                <h3>💰 정산</h3>
+                <ul>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/create-settlement</li>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/process-settlement</li>
+                </ul>
+            </div>
+
+            <div class="endpoint-card">
+                <h3>⭐ 리뷰</h3>
+                <ul>
+                    <li><span class="method-badge method-post">POST</span> /functions/v1/create-review</li>
+                    <li><span class="method-badge method-get">GET</span> /rest/v1/reviews</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-section">
+        <h2>🧪 테스트 예제</h2>
+        <div class="auth-info">
+            <p><strong>회원가입 테스트:</strong></p>
+            <pre style="background: white; padding: 10px; border-radius: 4px; overflow-x: auto;">curl -X POST https://eeprrrbqhufhduvbzftv.supabase.co/functions/v1/auth-signup \
+  -H "Authorization: Bearer [ANON_KEY]" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123",
+    "user_type": "customer",
+    "name": "테스트 사용자",
+    "phone": "01012345678"
+  }'</pre>
+        </div>
+    </div>
+
+    <div id="swagger-ui"></div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            const ui = SwaggerUIBundle({
+                url: "./api-swagger.yaml",
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                defaultModelsExpandDepth: 1,
+                defaultModelExpandDepth: 1,
+                docExpansion: "list",
+                filter: true,
+                showExtensions: true,
+                showCommonExtensions: true,
+                persistAuthorization: true,
+                onComplete: function() {
+                    // 인증 토큰 자동 설정
+                    ui.preauthorizeApiKey("bearerAuth", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlcHJycmJxaHVmaGR1dmJ6ZnR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NTUwNTQsImV4cCI6MjA3MDAzMTA1NH0.Bt5eTr4ZYT9jpYex_wFFqLr4rk9_yZBi5So-o9K0m9w");
+                }
+            });
+            window.ui = ui;
+        }
+    </script>
+</body>
+</html>

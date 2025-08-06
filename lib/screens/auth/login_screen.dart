@@ -28,17 +28,24 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
+    print('[로그] 로그인 시도: 이메일=${_emailController.text.trim()}');
+    if (!_formKey.currentState!.validate()) {
+      print('[로그] 폼 검증 실패');
+      return;
+    }
 
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text,
     );
+    print('[로그] 로그인 결과: $success, 에러: [31m${authProvider.error}[0m');
 
     if (success && mounted) {
+      print('[로그] 로그인 성공, 홈으로 이동');
       context.go('/home');
     } else if (mounted && authProvider.error != null) {
+      print('[로그] 로그인 실패, 에러 다이얼로그 표시');
       _showErrorDialog(authProvider.error!);
     }
   }

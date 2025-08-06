@@ -10,36 +10,27 @@ class AuthService {
   static const String _baseUrl = AppConfig.baseUrl;
   
   Future<Map<String, dynamic>> login(String email, String password) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/auth/login'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      ).timeout(AppConfig.apiTimeout);
-      
-      final data = jsonDecode(response.body);
-      
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'user': User.fromJson(data['user']),
-          'token': data['token'],
-        };
-      } else {
-        return {
-          'success': false,
-          'message': data['message'] ?? '로그인에 실패했습니다',
-        };
-      }
-    } catch (e) {
+    await Future.delayed(const Duration(milliseconds: 600));
+    // 목업: 이메일/비번이 아래와 일치하면 성공
+    if (email == 'test@prifree.com' && password == '1234') {
+      final user = User(
+        id: 'mock-user-1',
+        email: email,
+        name: '테스트 사용자',
+        userType: UserType.freelancer,
+        status: UserStatus.active,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      return {
+        'success': true,
+        'user': user,
+        'token': 'mock-token-1234',
+      };
+    } else {
       return {
         'success': false,
-        'message': '네트워크 오류가 발생했습니다: $e',
+        'message': '이메일 또는 비밀번호가 올바르지 않습니다.',
       };
     }
   }

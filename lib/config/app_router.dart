@@ -19,6 +19,9 @@ import '../screens/payment/payment_screen.dart';
 import '../screens/notification/notification_screen.dart';
 import '../screens/report/report_screen.dart';
 import '../screens/report/report_create_screen.dart';
+import '../screens/settlement/settlement_screen.dart';
+import '../screens/search/search_screen.dart';
+import '../screens/activity/activity_screen.dart';
 import '../providers/auth_provider.dart';
 import '../models/chat.dart';
 
@@ -167,6 +170,24 @@ class AppRouter {
         GoRoute(
           path: '/reports/create',
           builder: (context, state) => const ReportCreateScreen(),
+        ),
+        
+        // Settlement Routes
+        GoRoute(
+          path: '/settlement',
+          builder: (context, state) => const SettlementScreen(),
+        ),
+        
+        // Search Routes
+        GoRoute(
+          path: '/search',
+          builder: (context, state) => const SearchScreen(),
+        ),
+        
+        // Activity Routes
+        GoRoute(
+          path: '/activity',
+          builder: (context, state) => const ActivityScreen(),
         ),
         
         // Settings

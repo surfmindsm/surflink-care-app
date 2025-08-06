@@ -9,6 +9,8 @@ import '../../widgets/service_type_card.dart';
 import '../../widgets/recent_activity_card.dart';
 import '../../widgets/quick_action_button.dart';
 
+import '../../services/notification_service.dart';
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -19,11 +21,91 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final PageController _pageController = PageController();
+  
+  // 상태 정보
+  int _unreadNotificationCount = 0;
+  int _unreadMessageCount = 0;
+  int _pendingRequestCount = 0;
+
+  bool _isVerified = false;
+  Map<String, dynamic>? _profileStatus;
+  
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHomeData();
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+  
+  void _loadHomeData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final user = authProvider.currentUser;
+    
+    if (user != null) {
+      // 알림 개수 로드
+      try {
+        final notifications = await _notificationService.getUserNotifications(user.id);
+        setState(() {
+          _unreadNotificationCount = notifications.length;
+        });
+      } catch (e) {
+        // 목업 데이터
+        setState(() {
+          _unreadNotificationCount = 3;
+        });
+      }
+      
+      // 기타 상태 정보 로드 (목업)
+      setState(() {
+        _unreadMessageCount = 2;
+        _pendingRequestCount = user.isFreelancer ? 5 : 1;
+
+        _isVerified = user.isFreelancer ? (user.name.length > 2) : true; // 간단한 검증 로직
+        _profileStatus = _getProfileStatus(user);
+      });
+    }
+  }
+  
+  Map<String, dynamic> _getProfileStatus(User user) {
+    if (user.isFreelancer) {
+      int completedSteps = 0;
+      int totalSteps = 5;
+      
+      if (user.name.isNotEmpty) completedSteps++;
+      if (user.email.isNotEmpty) completedSteps++;
+      if (user.phone != null && user.phone!.isNotEmpty) completedSteps++;
+      if (_isVerified) completedSteps++;
+      if (user.name.length > 2) completedSteps++; // 자기소개 등
+      
+      return {
+        'completedSteps': completedSteps,
+        'totalSteps': totalSteps,
+        'percentage': (completedSteps / totalSteps * 100).round(),
+        'missingItems': _getMissingItems(user),
+      };
+    }
+    return {
+      'completedSteps': 3,
+      'totalSteps': 3,
+      'percentage': 100,
+      'missingItems': <String>[],
+    };
+  }
+  
+  List<String> _getMissingItems(User user) {
+    List<String> missing = [];
+    if (user.name.isEmpty) missing.add('이름');
+    if (user.phone == null || user.phone!.isEmpty) missing.add('연락처');
+    if (!_isVerified) missing.add('경력 인증');
+    if (user.name.length <= 2) missing.add('자기소개');
+    return missing;
   }
 
   void _onBottomNavTapped(int index) {
@@ -59,6 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              const SizedBox(height: 16),
+              _buildStatusCards(),
               const SizedBox(height: 24),
               _buildServiceTypes(),
               const SizedBox(height: 32),
@@ -124,11 +208,38 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-                        onPressed: () {
-                          // TODO: 알림 화면으로 이동
-                        },
+                      Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+                            onPressed: () => context.go('/notifications'),
+                          ),
+                          if (_unreadNotificationCount > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  _unreadNotificationCount > 99 ? '99+' : '$_unreadNotificationCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       IconButton(
                         icon: const Icon(Icons.settings_outlined, color: Colors.white),
@@ -161,9 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  onTap: () {
-                    // TODO: 검색 화면으로 이동
-                  },
+                  onTap: () => context.go('/search'),
                 ),
               ),
             ],
@@ -308,9 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: '수익 현황',
                       icon: Icons.analytics,
                       color: Colors.orange,
-                      onTap: () {
-                        // TODO: 수익 현황 화면으로 이동
-                      },
+                      onTap: () => context.go('/settlement'),
                     ),
                   ),
                 ] : [
@@ -366,9 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () {
-                  // TODO: 전체 활동 내역 화면으로 이동
-                },
+                onPressed: () => context.go('/activity'),
                 child: const Text('전체 보기'),
               ),
             ],
@@ -501,6 +606,175 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildStatusCards() {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final user = authProvider.currentUser;
+        
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
+          child: Column(
+            children: [
+              // 프로필 상태 카드
+              if (user?.isFreelancer == true && _profileStatus != null && _profileStatus!['percentage'] < 100)
+                _buildProfileStatusCard(),
+              
+              // 상태 요약 카드
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatusItem(
+                      '진행 중인\n${user?.isFreelancer == true ? '의뢰' : '요청'}',
+                      '$_pendingRequestCount',
+                      Colors.blue,
+                      Icons.work_outline,
+                      onTap: () => context.go('/requests'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatusItem(
+                      '읽지 않은\n메시지',
+                      '$_unreadMessageCount',
+                      Colors.green,
+                      Icons.message_outlined,
+                      onTap: () => context.go('/chats'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatusItem(
+                      user?.isFreelancer == true ? '수익 현황' : '이용 내역',
+                      user?.isFreelancer == true ? '보기' : '보기',
+                      user?.isFreelancer == true ? Colors.orange : Colors.purple,
+                      user?.isFreelancer == true ? Icons.analytics_outlined : Icons.history,
+                      onTap: () {
+                        if (user?.isFreelancer == true) {
+                          context.go('/settlement');
+                        } else {
+                          context.go('/activity');
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileStatusCard() {
+    final status = _profileStatus!;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade50, Colors.orange.shade100],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.person_outline,
+                color: Colors.orange.shade700,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '프로필 완성도 ${status['percentage']}%',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange.shade700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.go('/profile/edit'),
+                child: const Text('완성하기'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: status['percentage'] / 100.0,
+            backgroundColor: Colors.orange.shade200,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.orange.shade600),
+          ),
+          if (status['missingItems'].isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '미완성: ${(status['missingItems'] as List).join(', ')}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.orange.shade600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusItem(
+    String title,
+    String value,
+    Color color,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: color,
+              size: 24,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

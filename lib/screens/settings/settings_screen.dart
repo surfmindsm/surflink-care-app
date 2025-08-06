@@ -122,6 +122,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
 
+          // 개발자 도구
+          _buildSection(
+            title: '도움말',
+            children: [
+              ProfileMenuItem(
+                icon: Icons.quiz,
+                title: '도움말',
+                subtitle: '자주 묻는 질문',
+                onTap: () => _showHelpDialog(),
+              ),
+              ProfileMenuItem(
+                icon: Icons.bug_report,
+                title: '버그 신고',
+                subtitle: '오류 또는 개선사항 신고',
+                onTap: () => _showBugReportDialog(),
+              ),
+              ProfileMenuItem(
+                icon: Icons.api,
+                title: 'API 테스트',
+                subtitle: 'API 연결 상태 확인',
+                onTap: () => context.push('/settings/api-test'),
+              ),
+            ],
+          ),
+
           // 기타
           _buildSection(
             title: '기타',
@@ -466,6 +491,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
               foregroundColor: Colors.red,
             ),
             child: const Text('탈퇴'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('도움말'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('자주 묻는 질문'),
+            SizedBox(height: 8),
+            Text('Q: 회원가입이 안 돼요'),
+            Text('A: 이메일 형식과 비밀번호를 확인해주세요'),
+            SizedBox(height: 8),
+            Text('Q: 로그인이 안 돼요'),
+            Text('A: 아이디와 비밀번호를 다시 확인해주세요'),
+            SizedBox(height: 8),
+            Text('Q: API 연결이 안 돼요'),
+            Text('A: 인터넷 연결 상태를 확인해주세요'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBugReportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('버그 신고'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('버그를 발견하셨나요?'),
+            SizedBox(height: 8),
+            Text('다음 정보와 함께 신고해주세요:'),
+            SizedBox(height: 8),
+            Text('• 발생한 오류의 상세 설명'),
+            Text('• 오류 발생 시 수행한 작업'),
+            Text('• 스크린샷 (가능한 경우)'),
+            SizedBox(height: 8),
+            Text('연락처: support@prifree.com'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('이메일 앱으로 이동하여 신고해주세요')),
+              );
+            },
+            child: const Text('신고하기'),
           ),
         ],
       ),

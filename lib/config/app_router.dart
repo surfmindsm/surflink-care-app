@@ -17,6 +17,7 @@ import '../screens/freelancer/freelancer_detail_screen.dart';
 import '../screens/chat/chat_list_screen.dart';
 import '../screens/chat/chat_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../screens/settings/api_test_screen.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/payment/payment_screen.dart';
 import '../screens/notification/notification_screen.dart';
@@ -257,6 +258,10 @@ class AppRouter {
         GoRoute(
           path: '/settings',
           builder: (context, state) => const SettingsScreen(),
+        ),
+        GoRoute(
+          path: '/settings/api-test',
+          builder: (context, state) => const ApiTestScreen(),
         ),
       ],
       

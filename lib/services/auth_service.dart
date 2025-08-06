@@ -9,6 +9,12 @@ class AuthService {
     try {
       print('[로그] 로그인 시도: 이메일=$email');
       
+      // 개발/테스트용 목업 로그인
+      if (email.startsWith('test@') || email.contains('demo')) {
+        print('[로그] 목업 로그인 모드 활성화');
+        return _createMockLoginResponse(email);
+      }
+      
       final authResponse = await _authApiService.signIn(
         email: email,
         password: password,
@@ -316,5 +322,32 @@ class AuthService {
       default:
         return UserType.customer;
     }
+  }
+  
+  // 목업 로그인 응답 생성
+  Map<String, dynamic> _createMockLoginResponse(String email) {
+    // 이메일에 따라 사용자 타입 결정
+    final isFreelancer = email.contains('freelancer') || email.contains('provider');
+    final userName = email.contains('freelancer') ? '김프리' : 
+                    email.contains('provider') ? '이전문' : '홍고객';
+    
+    final user = User(
+      id: 'mock_${DateTime.now().millisecondsSinceEpoch}',
+      email: email,
+      name: userName,
+      phone: '010-1234-5678',
+      userType: isFreelancer ? UserType.freelancer : UserType.customer,
+      status: UserStatus.active,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    
+    print('[로그] 목업 로그인 성공: ${user.name} (${user.userType})');
+    
+    return {
+      'success': true,
+      'user': user,
+      'token': 'mock_token_${DateTime.now().millisecondsSinceEpoch}',
+    };
   }
 }

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user.dart';
-import '../../models/request.dart';
+
 import '../../config/app_config.dart';
 import '../../widgets/service_type_card.dart';
 import '../../widgets/recent_activity_card.dart';
@@ -19,8 +19,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedIndex = 0;
-  final PageController _pageController = PageController();
   
   // 상태 정보
   int _unreadNotificationCount = 0;
@@ -40,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
-    _pageController.dispose();
     super.dispose();
   }
   
@@ -108,55 +105,30 @@ class _HomeScreenState extends State<HomeScreen> {
     return missing;
   }
 
-  void _onBottomNavTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    
-    switch (index) {
-      case 0:
-        // 홈 - 이미 홈 화면
-        break;
-      case 1:
-        context.go('/requests');
-        break;
-      case 2:
-        context.go('/freelancers');
-        break;
-      case 3:
-        context.go('/chats');
-        break;
-      case 4:
-        context.go('/profile');
-        break;
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 16),
-              _buildStatusCards(),
-              const SizedBox(height: 24),
-              _buildServiceTypes(),
-              const SizedBox(height: 32),
-              _buildQuickActions(),
-              const SizedBox(height: 32),
-              _buildRecentActivity(),
-              const SizedBox(height: 32),
-              _buildRecommendations(),
-              const SizedBox(height: 24),
-            ],
-          ),
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 16),
+            _buildStatusCards(),
+            const SizedBox(height: 24),
+            _buildServiceTypes(),
+            const SizedBox(height: 32),
+            _buildQuickActions(),
+            const SizedBox(height: 32),
+            _buildRecentActivity(),
+            const SizedBox(height: 32),
+            _buildRecommendations(),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
@@ -778,46 +750,5 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-        
-        return BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onBottomNavTapped,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: Color(AppConfig.primaryColor),
-          unselectedItemColor: Colors.grey,
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: '홈',
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.list_alt_outlined),
-              activeIcon: const Icon(Icons.list_alt),
-              label: user?.isFreelancer == true ? '의뢰' : '내 의뢰',
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.people_outline),
-              activeIcon: const Icon(Icons.people),
-              label: user?.isFreelancer == true ? '경쟁자' : '전문가',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline),
-              activeIcon: Icon(Icons.chat_bubble),
-              label: '채팅',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: '프로필',
-            ),
-          ],
-        );
-      },
-    );
-  }
+
 }

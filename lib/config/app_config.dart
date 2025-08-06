@@ -4,11 +4,24 @@ class AppConfig {
   static const String appSubtitle = '돌봄·간병·튜터링·심리상담 프리랜서 매칭 플랫폼';
   static const String appVersion = '1.0.0';
   
-  // API Configuration - 백엔드 개발자 제공 스펙
+  // API Configuration - API 문서에 명시된 공식 설정
   static const String supabaseUrl = 'https://eeprrrbqhufhduvbzftv.supabase.co';
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlcHJycmJxaHVmaGR1dmJ6ZnR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NTUwNTQsImV4cCI6MjA3MDAzMTA1NH0.Bt5eTr4ZYT9jpYex_wFFqLr4rk9_yZBi5So-o9K0m9w';
-  static const String baseUrl = 'https://api.prifree.com/v1'; // 기존 API (deprecated)
+  
+  // Service Role Key (개발 용도만 - RLS 우회용)
+  // 주의: 실제 프로덕션에서는 서버에서만 사용해야 함
+  static const String supabaseServiceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlcHJycmJxaHVmaGR1dmJ6ZnR2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NDQ1NTA1NCwiZXhwIjoyMDcwMDMxMDU0fQ.zCJJ_bj4kdw6GgPEEt8Q0qD5eIYNjNlNEzwvYmGJhac';
+  
+  // API Endpoints - API 문서 기준
+  static const String authSignupEndpoint = '/functions/v1/auth-signup';  // 회원가입 Edge Function
+  static const String authTokenEndpoint = '/auth/v1/token';            // 로그인
+  static const String createRequestEndpoint = '/functions/v1/create-request'; // 의뢰 생성
+  static const String serviceRequestsEndpoint = '/rest/v1/service_requests';   // 의뢰 REST API
+  static const String matchingsEndpoint = '/rest/v1/matchings';              // 매칭 REST API
+  static const String paymentsEndpoint = '/rest/v1/payments';                // 결제 REST API
+  
   static const Duration apiTimeout = Duration(seconds: 30);
+  static const Duration functionTimeout = Duration(seconds: 15); // Edge Function용
   
   // Authentication
   static const String authTokenKey = 'auth_token';

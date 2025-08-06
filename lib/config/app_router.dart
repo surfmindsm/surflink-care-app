@@ -22,6 +22,7 @@ import '../screens/report/report_create_screen.dart';
 import '../screens/settlement/settlement_screen.dart';
 import '../screens/search/search_screen.dart';
 import '../screens/activity/activity_screen.dart';
+import '../screens/main_wrapper.dart';
 import '../providers/auth_provider.dart';
 import '../models/chat.dart';
 
@@ -75,16 +76,22 @@ class AppRouter {
           builder: (context, state) => const PasswordResetScreen(),
         ),
         
-        // Main App Routes
+        // Main App Routes with MainWrapper
         GoRoute(
           path: '/home',
-          builder: (context, state) => const HomeScreen(),
+          builder: (context, state) => MainWrapper(
+            child: const HomeScreen(),
+            location: state.matchedLocation,
+          ),
         ),
         
-        // Profile Routes
+        // Profile Routes  
         GoRoute(
           path: '/profile',
-          builder: (context, state) => const ProfileScreen(),
+          builder: (context, state) => MainWrapper(
+            child: const ProfileScreen(),
+            location: state.matchedLocation,
+          ),
         ),
         GoRoute(
           path: '/profile/edit',
@@ -94,7 +101,10 @@ class AppRouter {
         // Request Routes
         GoRoute(
           path: '/requests',
-          builder: (context, state) => const RequestListScreen(),
+          builder: (context, state) => MainWrapper(
+            child: const RequestListScreen(),
+            location: state.matchedLocation,
+          ),
         ),
         GoRoute(
           path: '/requests/create',
@@ -111,7 +121,10 @@ class AppRouter {
         // Freelancer Routes
         GoRoute(
           path: '/freelancers',
-          builder: (context, state) => const FreelancerListScreen(),
+          builder: (context, state) => MainWrapper(
+            child: const FreelancerListScreen(),
+            location: state.matchedLocation,
+          ),
         ),
         GoRoute(
           path: '/freelancers/:id',
@@ -124,13 +137,30 @@ class AppRouter {
         // Chat Routes
         GoRoute(
           path: '/chats',
-          builder: (context, state) => const ChatListScreen(),
+          builder: (context, state) => MainWrapper(
+            child: const ChatListScreen(),
+            location: state.matchedLocation,
+          ),
         ),
         GoRoute(
           path: '/chat/:roomId',
           builder: (context, state) {
             final roomId = state.pathParameters['roomId']!;
-            final chatRoom = state.extra as ChatRoom?;
+            
+            // extra가 Map<String, dynamic>인 경우 ChatRoom으로 변환
+            ChatRoom? chatRoom;
+            if (state.extra != null) {
+              if (state.extra is ChatRoom) {
+                chatRoom = state.extra as ChatRoom;
+              } else if (state.extra is Map<String, dynamic>) {
+                try {
+                  chatRoom = ChatRoom.fromJson(state.extra as Map<String, dynamic>);
+                } catch (e) {
+                  print('ChatRoom 변환 실패: $e');
+                  chatRoom = null;
+                }
+              }
+            }
             
             if (chatRoom != null) {
               return ChatScreen(chatRoom: chatRoom);

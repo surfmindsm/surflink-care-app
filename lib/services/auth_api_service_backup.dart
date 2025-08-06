@@ -1,6 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:dio/dio.dart';
-import '../config/app_config.dart';
 import 'api_service.dart';
 
 class AuthApiService {
@@ -48,7 +46,7 @@ class AuthApiService {
     }
   }
 
-  // Edge Function을 사용한 회원가입 (RLS 문제 해결)
+  // 데이터베이스 구조에 맞는 올바른 회원가입 Flow
   Future<AuthResponse> _signUpWithCorrectFlow({
     required String email,
     required String password,
@@ -59,105 +57,29 @@ class AuthApiService {
     try {
       print('데이터베이스 구조에 맞는 회원가입 시작...');
       
-      // 1. Edge Function을 사용하여 회원가입 처리
-      print('Step 1: Edge Function을 사용한 회원가입...');
-      
+      // 1. 먼저 이메일 중복 확인
       try {
-        final dio = Dio();
-        dio.options.headers = {
-          'apikey': AppConfig.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
-          'Content-Type': 'application/json',
-        };
-        
-        final response = await dio.post(
-          '${AppConfig.supabaseUrl}/functions/v1/auth-signup',
-          data: {
-            'email': email,
-            'password': password,
-            'name': name,
-            'phone': phone,
-            'user_type': userType,
-          },
-        );
-        
-        if (response.statusCode == 200) {
-          print('Edge Function 회원가입 성공');
-          
-          // 로그인하여 세션 생성
-          final authResponse = await _apiService.auth.signInWithPassword(
-            email: email,
-            password: password,
-          );
-          
-          if (authResponse.user != null) {
-            print('로그인 성공');
-            return authResponse;
-          } else {
-            throw Exception('로그인에 실패했습니다.');
-          }
-        } else {
-          throw Exception('Edge Function 오류: ${response.statusCode}');
+        final existingProfile = await _apiService.from('profiles')
+            .select('email')
+            .eq('email', email)
+            .maybeSingle();
+            
+        if (existingProfile != null) {
+          throw Exception('이미 등록된 이메일입니다.');
         }
       } catch (e) {
-        if (e.toString().contains('DioException') || e.toString().contains('404') || e.toString().contains('500')) {
-          print('Edge Function 사용 불가, 대체 방법 사용...');
-          return await _signUpWithAlternativeMethod(
-            email: email,
-            password: password,
-            name: name,
-            phone: phone,
-            userType: userType,
-          );
-        } else {
-          rethrow;
-        }
+        if (e.toString().contains('이미 등록된')) rethrow;
+        print('이메일 중복 확인 실패 (무시하고 진행): $e');
       }
       
-    } catch (e) {
-      print('회원가입 에러: $e');
-      
-      // 에러 메시지 정리
-      if (e.toString().contains('User already registered')) {
-        throw Exception('이미 등록된 이메일입니다.');
-      } else if (e.toString().contains('duplicate key value violates unique constraint')) {
-        throw Exception('이미 등록된 사용자입니다.');
-      } else if (e.toString().contains('violates foreign key constraint')) {
-        throw Exception('데이터베이스 외래키 제약조건 위반. 시스템 관리자에게 문의해주세요.');
-      } else if (e.toString().contains('relation') && e.toString().contains('does not exist')) {
-        throw Exception('요구되는 데이터베이스 테이블이 존재하지 않습니다.');
-      } else if (e.toString().contains('Password should be at least')) {
-        throw Exception('비밀번호는 최소 6자 이상이어야 합니다.');
-      } else if (e.toString().contains('Invalid email')) {
-        throw Exception('유효하지 않은 이메일 형식입니다.');
-      } else if (e.toString().contains('Exception:')) {
-        rethrow; // 이미 처리된 Exception은 그대로 전달
-      }
-      
-      throw Exception('회원가입에 실패했습니다: ${e.toString()}');
-    }
-  }
-
-  // 대체 회원가입 방법 (이메일 확인 비활성화)
-  Future<AuthResponse> _signUpWithAlternativeMethod({
-    required String email,
-    required String password,
-    required String name,
-    required String? phone,
-    required String userType,
-  }) async {
-    try {
-      print('대체 방법으로 회원가입 시도...');
-      
-      // 1. Supabase Auth에 사용자 생성 (이메일 확인 비활성화)
-      print('Auth 사용자 생성...');
+      // 2. Supabase Auth에 사용자 생성
+      print('Step 1: Supabase Auth 사용자 생성...');
       final authResponse = await _apiService.auth.signUp(
         email: email,
         password: password,
         data: {
           'name': name,
           'user_type': userType,
-          'email': email, // metadata에 이메일 포함
         },
       );
       
@@ -168,30 +90,72 @@ class AuthApiService {
       final userId = authResponse.user!.id;
       print('Auth 사용자 생성 성공 - ID: $userId');
       
-      // 2. 개발 모드에서는 이메일 확인 강제 통과
-      print('개발 모드: 이메일 확인 우회하고 프로필 생성...');
+      // 3. profiles 테이블에 사용자 정보 삽입
+      print('Step 2: profiles 테이블에 사용자 정보 삽입...');
       
-      // 3. 현재 사용자로 로그인 시도 (이메일 확인 상태 무시)
-      try {
-        // 개발 환경에서는 바로 로그인 성공했다고 가정
-        print('개발용 로그인 성공 처리');
-        
-        // 프로필 생성은 건너뛰고 기본 auth만 사용
-        print('기본 Auth 사용자만 생성하고 프로필은 나중에 생성');
-        
-        return authResponse;
-      } catch (e) {
-        print('로그인 시도 실패: $e');
-        // 이메일 확인이 정말 필요한 경우
-        throw Exception('이메일 확인이 필요합니다. 이메일을 확인한 후 다시 로그인해주세요.');
+      final profileData = {
+        'id': userId, // auth.users.id와 동일한 UUID 사용 (외래키)
+        'email': email,
+        'name': name,
+        'phone': phone,
+        'user_type': userType,
+        'role': 'user',
+        'is_verified': false,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      
+      print('삽입할 프로필 데이터: $profileData');
       }
-    } catch (e) {
-      print('대체 회원가입 방법 실패: $e');
-      rethrow;
+      
+      // 6. 자동 로그인 처리
+      if (authResponse.session != null) {
+        print('회원가입 및 자동 로그인 성공');
+        return authResponse;
+      } else {
+        // 세션이 없는 경우 수동 로그인 시도
+        print('세션이 없어 수동 로그인 시도...');
+        final loginResponse = await _apiService.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
+        return loginResponse;
+      }
+    } catch (directAuthError) {
+      print('Direct Auth 에러: $directAuthError');
+      
+      // 실패 시 생성된 Auth 사용자 정리
+      if (authResponse?.user != null) {
+        try {
+          await _apiService.auth.admin.deleteUser(authResponse!.user!.id);
+          print('실패 시 Auth 사용자 정리 완료');
+        } catch (cleanupError) {
+          print('실패 시 Auth 사용자 정리 실패: $cleanupError');
+        }
+      }
+      
+      // 에러 메시지 정리
+      if (directAuthError.toString().contains('User already registered') || 
+          directAuthError.toString().contains('already registered')) {
+        throw Exception('이미 가입된 이메일 주소입니다.');
+      } else if (directAuthError.toString().contains('Invalid email')) {
+        throw Exception('올바른 이메일 형식이 아닙니다.');
+      } else if (directAuthError.toString().contains('Password should be at least')) {
+        throw Exception('비밀번호는 최소 6자 이상이어야 합니다.');
+      } else if (directAuthError.toString().contains('Database error saving new user') ||
+                 directAuthError.toString().contains('Database error')) {
+        throw Exception('데이터베이스 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      } else if (directAuthError.toString().contains('Network') ||
+                 directAuthError.toString().contains('network')) {
+        throw Exception('네트워크 연결을 확인해주세요.');
+      } else if (directAuthError.toString().contains('사용자 프로필 생성')) {
+        // 이미 처리한 프로필 생성 에러는 그대로 전달
+        rethrow;
+      }
+      
+      throw Exception('회원가입에 실패했습니다: 서버와의 연결을 확인하고 다시 시도해주세요.');
     }
   }
-
-
 
   // 로그인
   Future<AuthResponse> signIn({
@@ -199,24 +163,34 @@ class AuthApiService {
     required String password,
   }) async {
     try {
-      print('로그인 시도: $email');
+      // 입력값 검증
+      if (email.trim().isEmpty || !email.contains('@')) {
+        throw Exception('유효한 이메일 주소를 입력해주세요.');
+      }
+      if (password.isEmpty) {
+        throw Exception('비밀번호를 입력해주세요.');
+      }
+
+      print('로그인 시도: ${email.trim()}');
       
+      // Supabase Auth API를 사용한 로그인
       final response = await _apiService.auth.signInWithPassword(
         email: email.trim(),
         password: password,
       );
-
-      if (response.session != null && response.user != null) {
+      
+      if (response.user != null && response.session != null) {
         print('로그인 성공: ${response.user!.id}');
         
-        // 프로필 정보 확인 및 로드
+        // 사용자 프로필 정보 확인
         try {
           final profile = await getUserProfile();
           if (profile != null) {
-            print('사용자 프로필 로드 성공: ${profile['user_type']}');
+            print('사용자 타입: ${profile['user_type']}');
           }
-        } catch (e) {
-          print('프로필 로드 실패: $e');
+        } catch (profileError) {
+          print('프로필 정보 확인 실패: $profileError');
+          // 프로필 오류가 있어도 로그인은 계속 진행
         }
         
         return response;

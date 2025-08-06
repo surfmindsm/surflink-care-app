@@ -5,9 +5,17 @@ import 'providers/auth_provider.dart';
 import 'config/app_router.dart';
 import 'config/app_theme.dart';
 import 'config/app_config.dart';
+import 'config/supabase_config.dart';
+import 'services/api_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Supabase 초기화
+  await SupabaseConfig.initialize();
+  
+  // API 서비스 초기화
+  apiService.initialize();
   
   // SharedPreferences 초기화
   final prefs = await SharedPreferences.getInstance();

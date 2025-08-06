@@ -123,12 +123,12 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
     
     try {
-      final result = await _authService.resetPassword(email);
+      final success = await _authService.resetPassword(email);
       
-      if (result['success'] == true) {
+      if (success) {
         return true;
       } else {
-        _setError(result['message'] ?? '비밀번호 재설정에 실패했습니다');
+        _setError('비밀번호 재설정에 실패했습니다');
         return false;
       }
     } catch (e) {
@@ -206,7 +206,23 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
     
     try {
-      final result = await _authService.loginWithKakao();
+      // 카카오 로그인은 아직 미구현
+      _setError('카카오 로그인은 아직 지원되지 않습니다.');
+      return false;
+    } catch (e) {
+      _setError('카카오 로그인 중 오류가 발생했습니다: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+  
+  Future<bool> loginWithGoogle() async {
+    _setLoading(true);
+    _clearError();
+    
+    try {
+      final result = await _authService.signInWithGoogle();
       
       if (result['success'] == true) {
         _currentUser = result['user'];
@@ -223,34 +239,6 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       _setError('카카오 로그인 중 오류가 발생했습니다: $e');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-  
-  Future<bool> loginWithGoogle() async {
-    _setLoading(true);
-    _clearError();
-    
-    try {
-      final result = await _authService.loginWithGoogle();
-      
-      if (result['success'] == true) {
-        _currentUser = result['user'];
-        
-        await _prefs.setString(AppConfig.authTokenKey, result['token']);
-        await _prefs.setString(AppConfig.userIdKey, _currentUser!.id);
-        await _prefs.setString(AppConfig.userTypeKey, _currentUser!.userType.toString().split('.').last);
-        
-        notifyListeners();
-        return true;
-      } else {
-        _setError(result['message'] ?? '구글 로그인에 실패했습니다');
-        return false;
-      }
-    } catch (e) {
-      _setError('구글 로그인 중 오류가 발생했습니다: $e');
       return false;
     } finally {
       _setLoading(false);

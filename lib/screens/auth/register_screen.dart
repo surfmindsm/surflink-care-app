@@ -83,7 +83,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case 0:
         return _selectedUserType != null;
       case 1:
-        return _formKey.currentState?.validate() ?? false;
+        // 기본 정보 단계: 필수 필드가 모두 입력되었는지 확인
+        return _emailController.text.isNotEmpty &&
+               _passwordController.text.isNotEmpty &&
+               _confirmPasswordController.text.isNotEmpty &&
+               _nameController.text.isNotEmpty &&
+               _emailController.text.contains('@') &&
+               _passwordController.text.length >= 6 &&
+               _passwordController.text == _confirmPasswordController.text;
       case 2:
         return true; // 추가 정보는 선택사항
       case 3:
@@ -274,6 +281,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   labelText: '이메일',
                   prefixIcon: Icon(Icons.email_outlined),
                 ),
+                onChanged: (value) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '이메일을 입력해주세요';
@@ -305,6 +313,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                 ),
+                onChanged: (value) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '비밀번호를 입력해주세요';
@@ -336,6 +345,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     },
                   ),
                 ),
+                onChanged: (value) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '비밀번호 확인을 입력해주세요';
@@ -356,6 +366,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   labelText: '이름',
                   prefixIcon: Icon(Icons.person_outlined),
                 ),
+                onChanged: (value) => setState(() {}),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return '이름을 입력해주세요';

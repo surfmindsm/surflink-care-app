@@ -53,6 +53,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _nextStep() {
     if (_currentStep < 3) {
       if (_validateCurrentStep()) {
+        // 기본 정보 단계에서 이메일 인증으로 이동
+        if (_currentStep == 1) {
+          context.go('/register/email-verification', extra: _emailController.text.trim());
+          return;
+        }
+        
         setState(() {
           _currentStep++;
         });

@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/password_reset_screen.dart';
+import '../screens/auth/email_confirm_screen.dart';
+import '../screens/auth/email_verification_screen.dart';
+import '../screens/auth/register_complete_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
@@ -38,7 +41,10 @@ class AppRouter {
         final isLoggedIn = authProvider.isAuthenticated;
         final isLoggingIn = state.matchedLocation == '/login' || 
                            state.matchedLocation == '/register' ||
-                           state.matchedLocation == '/password-reset';
+                           state.matchedLocation == '/password-reset' ||
+                           state.matchedLocation == '/register/email-verification' ||
+                           state.matchedLocation == '/register/complete' ||
+                           state.matchedLocation.startsWith('/auth/');
         
         // 로그인되지 않은 경우
         if (!isLoggedIn) {
@@ -74,6 +80,31 @@ class AppRouter {
         GoRoute(
           path: '/password-reset',
           builder: (context, state) => const PasswordResetScreen(),
+        ),
+        
+        // Email Confirmation Route
+        GoRoute(
+          path: '/auth/confirm',
+          builder: (context, state) {
+            final code = state.uri.queryParameters['code'];
+            return EmailConfirmScreen(code: code);
+          },
+        ),
+        
+        // Email Verification Routes
+        GoRoute(
+          path: '/register/email-verification',
+          builder: (context, state) {
+            final email = state.extra as String? ?? '';
+            return EmailVerificationScreen(email: email);
+          },
+        ),
+        GoRoute(
+          path: '/register/complete',
+          builder: (context, state) {
+            final email = state.extra as String? ?? '';
+            return RegisterCompleteScreen(email: email);
+          },
         ),
         
         // Main App Routes with MainWrapper

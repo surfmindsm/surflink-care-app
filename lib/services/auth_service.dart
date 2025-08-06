@@ -1,5 +1,8 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../models/user.dart';
+import '../config/app_config.dart';
 import 'auth_api_service.dart';
 
 class AuthService {
@@ -324,6 +327,64 @@ class AuthService {
     }
   }
   
+  // 이메일 인증코드 발송
+  Future<bool> sendEmailVerificationCode(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}${AppConfig.sendEmailCodeEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
+        },
+        body: jsonEncode({'email': email}),
+      );
+      
+      print('[로그] 인증코드 발송 요청: 이메일=$email, 상태=${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        print('[로그] 인증코드 발송 성공');
+        return true;
+      } else {
+        print('[로그] 인증코드 발송 실패: ${response.body}');
+        throw Exception('인증코드 발송에 실패했습니다.');
+      }
+    } catch (e) {
+      print('[로그] 인증코드 발송 에러: $e');
+      rethrow;
+    }
+  }
+  
+  // 이메일 인증코드 검증
+  Future<bool> verifyEmailCode(String email, String code) async {
+    try {
+      final response = await http.post(
+        Uri.parse('${AppConfig.supabaseUrl}${AppConfig.verifyEmailCodeEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${AppConfig.supabaseAnonKey}',
+        },
+        body: jsonEncode({
+          'email': email,
+          'code': code,
+        }),
+      );
+      
+      print('[로그] 인증코드 검증 요청: 이메일=$email, 코드=$code, 상태=${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        print('[로그] 인증코드 검증 성공');
+        return true;
+      } else {
+        print('[로그] 인증코드 검증 실패: ${response.body}');
+        final errorData = jsonDecode(response.body);
+        throw Exception(errorData['message'] ?? '인증코드가 올바르지 않습니다.');
+      }
+    } catch (e) {
+      print('[로그] 인증코드 검증 에러: $e');
+      rethrow;
+    }
+  }
+
   // 목업 로그인 응답 생성
   Map<String, dynamic> _createMockLoginResponse(String email) {
     // 이메일에 따라 사용자 타입 결정

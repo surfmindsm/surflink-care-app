@@ -67,6 +67,10 @@ class AuthApiService {
         
         if (authResponse.user != null) {
           print('Supabase 기본 Auth로 회원가입 성공');
+          print('사용자 ID: ${authResponse.user!.id}');
+          print('이메일: ${authResponse.user!.email}');
+          print('이메일 확인 상태: ${authResponse.user!.emailConfirmedAt}');
+          print('세션 존재: ${authResponse.session != null}');
           
           try {
             // 사용자 프로필 생성 시도
@@ -84,6 +88,7 @@ class AuthApiService {
             // profiles 테이블이 없어도 회원가입은 성공으로 처리
           }
           
+          // Supabase signUp은 자동으로 로그인 세션을 생성하므로 바로 반환
           return authResponse;
         } else {
           print('Supabase 기본 Auth도 실패');

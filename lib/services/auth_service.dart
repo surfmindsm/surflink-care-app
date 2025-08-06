@@ -7,25 +7,48 @@ class AuthService {
   
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      print('[로그] 로그인 시도: 이메일=$email');
+      
       final authResponse = await _authApiService.signIn(
         email: email,
         password: password,
       );
       
+      print('[로그] 인증 응답: 사용자=${authResponse.user?.id}, 세션=${authResponse.session?.accessToken != null}');
+      
       if (authResponse.user != null) {
+        // 이메일 확인 상태 체크
+        if (authResponse.user!.emailConfirmedAt == null) {
+          print('[로그] 이메일 미확인 사용자: ${authResponse.user!.email}');
+          // 이메일 미확인이어도 로그인 허용 (개발 환경)
+          // return {
+          //   'success': false,
+          //   'message': '이메일 확인이 필요합니다. 이메일을 확인해주세요.',
+          // };
+        }
+        
         // Supabase User를 앱 User 모델로 변환
-        final userProfile = await _authApiService.getUserProfile();
+        Map<String, dynamic>? userProfile;
+        try {
+          userProfile = await _authApiService.getUserProfile();
+          print('[로그] 프로필 조회 성공: $userProfile');
+        } catch (profileError) {
+          print('[로그] 프로필 조회 실패 (기본값 사용): $profileError');
+          userProfile = null;
+        }
         
         final user = User(
           id: authResponse.user!.id,
           email: authResponse.user!.email ?? email,
-          name: userProfile?['name'] ?? '사용자',
-          phone: userProfile?['phone'],
+          name: userProfile?['name'] ?? authResponse.user!.userMetadata?['name'] ?? '사용자',
+          phone: userProfile?['phone'] ?? authResponse.user!.userMetadata?['phone'],
           userType: _parseUserType(userProfile?['user_type']),
           status: UserStatus.active,
           createdAt: DateTime.parse(authResponse.user!.createdAt),
           updatedAt: DateTime.now(),
         );
+        
+        print('[로그] 로그인 성공: ${user.name} (${user.userType})');
         
         return {
           'success': true,
@@ -33,6 +56,7 @@ class AuthService {
           'token': authResponse.session?.accessToken ?? '',
         };
       } else {
+        print('[로그] 인증 실패: 사용자 정보 없음');
         return {
           'success': false,
           'message': '로그인에 실패했습니다.',
@@ -40,9 +64,26 @@ class AuthService {
       }
     } catch (e) {
       print('Login error: $e');
+      
+      // 구체적인 에러 메시지 처리
+      String errorMessage;
+      if (e.toString().contains('Invalid login credentials')) {
+        errorMessage = '이메일 또는 비밀번호가 올바르지 않습니다.';
+      } else if (e.toString().contains('Email not confirmed')) {
+        errorMessage = '이메일 확인이 필요합니다. 이메일을 확인해주세요.';
+      } else if (e.toString().contains('User not found')) {
+        errorMessage = '등록되지 않은 이메일입니다. 회원가입을 해주세요.';
+      } else if (e.toString().contains('Too many requests')) {
+        errorMessage = '너무 많은 시도입니다. 잠시 후 다시 시도해주세요.';
+      } else {
+        errorMessage = '로그인 중 오류가 발생했습니다. 다시 시도해주세요.';
+      }
+      
+      print('[로그] 로그인 결과: false, 에러: $errorMessage');
+      
       return {
         'success': false,
-        'message': '이메일 또는 비밀번호가 올바르지 않습니다.',
+        'message': errorMessage,
       };
     }
   }

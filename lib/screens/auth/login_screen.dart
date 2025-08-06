@@ -50,13 +50,48 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Widget _buildErrorContent(String message) {
+    final bool showSignupHint = message.contains('이메일 또는 비밀번호가 올바르지 않습니다') ||
+        message.contains('등록되지 않은 이메일');
+    
+    List<Widget> children = [Text(message)];
+    
+    if (showSignupHint) {
+      children.addAll([
+        const SizedBox(height: 16),
+        const Text(
+          '혹시 아직 회원가입을 하지 않으셨나요?',
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+            color: Colors.orange,
+          ),
+        ),
+      ]);
+    }
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('로그인 실패'),
-        content: Text(message),
+        content: _buildErrorContent(message),
         actions: [
+          if (message.contains('이메일 또는 비밀번호가 올바르지 않습니다') ||
+              message.contains('등록되지 않은 이메일'))
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.push('/register');
+              },
+              child: const Text('회원가입'),
+            ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('확인'),

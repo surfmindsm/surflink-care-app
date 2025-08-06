@@ -1,5 +1,5 @@
 name: care_surflink
-description: "프리프리(PRIFREE) - 돌봄·간병·튜터링·심리상담 프리랜서 중개 플랫폼"
+description: "케어 서프링크(Care SurfLink) - 돌봄·간병·튜터링·심리상담 프리랜서 중개 플랫폼"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.3.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -31,28 +31,56 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # UI & Navigation
+  # 기본 UI 패키지
   cupertino_icons: ^1.0.8
+  material_symbols_icons: ^4.2719.1
+  
+  # 디바이스 정보 획득
+  device_info_plus: ^10.1.2
+  flutter_svg: ^2.0.7
+  google_fonts: ^6.1.0
+  lottie: ^3.1.0
+  flutter_screenutil: ^5.9.0
+  
+  # UI & Navigation
   go_router: ^14.2.1
   provider: ^6.1.2
   
-  # Network & API
-  http: ^1.2.1
-  dio: ^5.4.3+1
-  supabase_flutter: ^2.5.6
+  # 상태 관리 (Riverpod 추가 옵션)
+  flutter_riverpod: ^3.0.0-dev.3
+  riverpod_annotation: ^3.0.0-dev.3
+  state_notifier: ^1.0.0
   
-  # Local Storage
-  shared_preferences: ^2.2.3
+  # Network & API
+  http: ^1.1.0
+  dio: ^5.4.3+1
+  connectivity_plus: ^5.0.1
+  
+  # Supabase 연동
+  supabase_flutter: ^2.3.2
+  
+  # Local Storage & Security
+  shared_preferences: ^2.2.2
   sqflite: ^2.3.3+1
+  flutter_secure_storage: ^9.0.0
   
   # Authentication & Security
   crypto: ^3.0.3
+  
+  # 인앱 결제
+  in_app_purchase: ^3.1.11
   
   # Image & File
   image_picker: ^1.1.2
   file_picker: ^8.0.5
   cached_network_image: ^3.3.1
   url_launcher: ^6.2.5
+  path_provider: ^2.1.1
+  
+  # QR 코드 관련
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^4.0.0
+  share_plus: ^11.0.0
   
   # UI Components
   flutter_rating_bar: ^4.0.1
@@ -66,12 +94,13 @@ dependencies:
   socket_io_client: ^2.0.3+1
   
   # Push Notifications
-  firebase_core: ^3.3.0
-  firebase_messaging: ^15.0.4
+  firebase_core: ^2.32.0
+  firebase_messaging: ^14.7.10
   flutter_local_notifications: ^17.2.2
+  app_links: ^6.4.0
   
-  # Social Login
-  google_sign_in: ^6.2.1
+  # Social Login (Google Sign-In temporarily disabled for iOS compatibility)
+  # google_sign_in: ^6.2.1
   kakao_flutter_sdk: ^1.9.4
   
   # Utils
@@ -82,23 +111,69 @@ dependencies:
   # Maps & Location
   geolocator: ^12.0.0
   geocoding: ^3.0.0
+  
+  # 키보드 가시성 관련
+  flutter_keyboard_visibility: ^6.0.0
+  
+  # 엑셀 파일 처리
+  excel: ^3.0.0
+  # file_picker는 위에 이미 정의됨
+  
+  # 차트 및 그래프
+  fl_chart: ^0.66.2
+  saver_gallery: ^4.0.1  # Android & iOS 통합
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^2.0.0
+  
+  # 코드 생성
+  build_runner: ^2.4.6
+  
+  # 코드 생성 및 도구
+  riverpod_generator: ^3.0.0-dev.11
+  
+  # 테스트 도구
+  mockito: ^5.4.2
+  
+  # 아이콘 및 스플래시 생성
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.9
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+# 앱 아이콘 설정
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
+
+# 스플래시 스크린 설정
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/images/splash_logo.png"
+  branding: "assets/images/splash_bottom.png"
+  color_dark: "#121212"
+  image_dark: "assets/images/splash_logo_dark.png"
+  branding_dark: "assets/images/splash_bottom_dark.png"
+  android_12:
+    image: "assets/images/splash_logo.png"
+    color: "#ffffff"
+    image_dark: "assets/images/splash_logo_dark.png"
+    color_dark: "#121212"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 # The following section is specific to Flutter packages.
 flutter:
+  assets:
+    - assets/images/check_splash.png
+    - assets/images/
+    - assets/icons/
+    - assets/lottie/
+    - assets/fonts/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -135,3 +210,24 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Thin.otf
+          weight: 100
+        - asset: assets/fonts/Pretendard-ExtraLight.otf
+          weight: 200
+        - asset: assets/fonts/Pretendard-Light.otf
+          weight: 300
+        - asset: assets/fonts/Pretendard-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Pretendard-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Pretendard-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Pretendard-Bold.otf
+          weight: 700
+        - asset: assets/fonts/Pretendard-ExtraBold.otf
+          weight: 800
+        - asset: assets/fonts/Pretendard-Black.otf
+          weight: 900

@@ -27,73 +27,35 @@ class AuthApiService {
         throw Exception('올바른 사용자 유형을 선택해주세요.');
       }
 
-      // Edge Function 호출을 위한 요청 데이터 준비
+      // 백엔드 개발자 제공 API 스펙에 따른 요청 데이터 준비
       final requestData = {
         'email': email.trim(),
         'password': password,
         'user_type': userType,
         'name': name.trim(),
-        'phone': phone.trim().isEmpty ? '' : phone.trim(), // null 대신 빈 문자열 사용
+        'phone': phone.trim().isEmpty ? null : phone.trim(), // API 문서에서 phone이 선택사항
       };
       
       print('회원가입 요청 데이터: $requestData');
       
-      try {
-        // Edge Function 호출로 회원가입 시도
-        final result = await _apiService.invokeFunction('auth-signup', body: requestData);
-        
-        print('Edge Function 응답: $result');
+      // 백엔드 개발자가 제공한 auth-signup Edge Function 호출
+      final result = await _apiService.invokeFunction('auth-signup', body: requestData);
+      
+      print('Edge Function 응답: $result');
 
-        // 성공시 로그인 처리
-        if (result['success'] == true) {
-          print('회원가입 성공, 자동 로그인 시도...');
-          return await _apiService.auth.signInWithPassword(
-            email: email.trim(),
-            password: password,
-          );
-        } else {
-          final errorMessage = result['error'] ?? result['message'] ?? '회원가입에 실패했습니다.';
-          print('회원가입 실패: $errorMessage');
-          throw Exception(errorMessage);
-        }
-      } catch (edgeFunctionError) {
-        print('Edge Function 실패, Supabase 기본 Auth API로 대체 시도: $edgeFunctionError');
+      // 성공시 자동 로그인 처리
+      if (result['success'] == true) {
+        print('회원가입 성공, 자동 로그인 시도...');
         
-        // Edge Function이 실패하면 Supabase 기본 auth API 사용
-        final authResponse = await _apiService.auth.signUp(
+        // 회원가입 성공 후 자동 로그인
+        return await _apiService.auth.signInWithPassword(
           email: email.trim(),
           password: password,
         );
-        
-        if (authResponse.user != null) {
-          print('Supabase 기본 Auth로 회원가입 성공');
-          print('사용자 ID: ${authResponse.user!.id}');
-          print('이메일: ${authResponse.user!.email}');
-          print('이메일 확인 상태: ${authResponse.user!.emailConfirmedAt}');
-          print('세션 존재: ${authResponse.session != null}');
-          
-          try {
-            // 사용자 프로필 생성 시도
-            await _apiService.from('profiles').insert({
-              'id': authResponse.user!.id,
-              'name': name.trim(),
-              'phone': phone.trim().isEmpty ? '' : phone.trim(),
-              'user_type': userType,
-              'created_at': DateTime.now().toIso8601String(),
-              'updated_at': DateTime.now().toIso8601String(),
-            });
-            print('사용자 프로필 생성 성공');
-          } catch (profileError) {
-            print('프로필 생성 실패 (무시하고 계속): $profileError');
-            // profiles 테이블이 없어도 회원가입은 성공으로 처리
-          }
-          
-          // Supabase signUp은 자동으로 로그인 세션을 생성하므로 바로 반환
-          return authResponse;
-        } else {
-          print('Supabase 기본 Auth도 실패');
-          throw Exception('회원가입에 실패했습니다.');
-        }
+      } else {
+        final errorMessage = result['error'] ?? result['message'] ?? '회원가입에 실패했습니다.';
+        print('회원가입 실패: $errorMessage');
+        throw Exception(errorMessage);
       }
     } on Exception catch (e) {
       print('회원가입 에러 (Exception): $e');

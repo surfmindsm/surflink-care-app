@@ -112,16 +112,17 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       print('AuthProvider register error: $e');
-      // 더 구체적인 에러 메시지 처리
-      if (e.toString().contains('FunctionException')) {
+      // 백엔드 개발자 API 기반 에러 처리
+      if (e.toString().contains('Exception: ')) {
+        final cleanError = e.toString().replaceFirst('Exception: ', '');
+        // 백엔드에서 전달한 구체적인 에러 메시지 사용
+        _setError(cleanError);
+      } else if (e.toString().contains('FunctionException')) {
         if (e.toString().contains('status: 400')) {
           _setError('입력한 정보를 확인해주세요. 이미 사용 중인 이메일일 수 있습니다.');
         } else {
-          _setError('서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+          _setError('서버에서 회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.');
         }
-      } else if (e.toString().contains('Exception: ')) {
-        final cleanError = e.toString().replaceFirst('Exception: ', '');
-        _setError(cleanError);
       } else {
         _setError('네트워크 연결을 확인해주세요.');
       }

@@ -4,8 +4,10 @@ class AppConfig {
   static const String appSubtitle = '돌봄·간병·튜터링·심리상담 프리랜서 매칭 플랫폼';
   static const String appVersion = '1.0.0';
   
-  // API Configuration
-  static const String baseUrl = 'https://api.prifree.com/v1';
+  // API Configuration - 백엔드 개발자 제공 스펙
+  static const String supabaseUrl = 'https://eeprrrbqhufhduvbzftv.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlcHJycmJxaHVmaGR1dmJ6ZnR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NTUwNTQsImV4cCI6MjA3MDAzMTA1NH0.Bt5eTr4ZYT9jpYex_wFFqLr4rk9_yZBi5So-o9K0m9w';
+  static const String baseUrl = 'https://api.prifree.com/v1'; // 기존 API (deprecated)
   static const Duration apiTimeout = Duration(seconds: 30);
   
   // Authentication

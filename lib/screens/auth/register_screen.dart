@@ -115,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
 
     if (success && mounted) {
-      context.go('/home');
+      _showSuccessDialog();
     } else if (mounted && authProvider.error != null) {
       _showErrorDialog(authProvider.error!);
     }
@@ -131,6 +131,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('회원가입 성공'),
+        content: const Text('회원가입이 완료되었습니다.\n프리프리에 오신 것을 환영합니다! 🎉'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.go('/home');
+            },
+            child: const Text('시작하기'),
           ),
         ],
       ),

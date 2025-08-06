@@ -46,14 +46,4 @@ post_install do |installer|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end
   end
-  
-  # Force specific pod versions to resolve conflicts
-  installer.pods_project.targets.each do |target|
-    if target.name == 'GoogleUtilities'
-      target.build_configurations.each do |config|
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= []
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'COCOAPODS=1'
-      end
-    end
-  end
 end

@@ -272,7 +272,7 @@ class _RequestListScreenState extends State<RequestListScreen>
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => RequestCreateScreen(request: request),
+        builder: (context) => RequestCreateScreen(existingRequest: request),
       ),
     ).then((result) {
       if (result == true) {

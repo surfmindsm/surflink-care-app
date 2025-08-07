@@ -51,14 +51,14 @@ class _MainWrapperState extends State<MainWrapper> {
           _selectedIndex = 3;
         } else if (widget.location!.startsWith('/profile')) {
           _selectedIndex = 4;
+        } else if (widget.location!.startsWith('/settlement')) {
+          _selectedIndex = 4; // 수익 화면도 4번 인덱스
         }
       });
     }
   }
 
   void _onBottomNavTapped(int index) {
-    if (_selectedIndex == index) return;
-
     setState(() {
       _selectedIndex = index;
     });
@@ -83,10 +83,8 @@ class _MainWrapperState extends State<MainWrapper> {
         break;
       case 4:
         if (isFreelancer) {
-          // 프리랜서: 수익 현황
           context.go('/settlement');
         } else {
-          // 고객: 마이 페이지 (프로필)
           context.go('/profile');
         }
         break;

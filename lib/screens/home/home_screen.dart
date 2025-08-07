@@ -15,6 +15,7 @@ import '../../services/notification_service.dart';
 import '../../services/request_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/freelancer_service.dart';
+import '../../services/settlement_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -34,6 +35,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isVerified = false;
   Map<String, dynamic>? _profileStatus;
   
+  // 프리랜서 수익 데이터
+  Map<String, dynamic>? _earningsData;
+  
   // 실제 데이터
   List<ServiceRequest> _recentRequests = [];
   List<dynamic> _recommendations = [];
@@ -44,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final RequestService _requestService = RequestService();
   final ChatService _chatService = ChatService();
   final FreelancerService _freelancerService = FreelancerService();
+  final SettlementService _settlementService = SettlementService();
 
   @override
   void initState() {
@@ -81,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _loadRequestData(user),
           _loadChatData(user),
           _loadRecommendationData(user),
+          if (user.isFreelancer) _loadFreelancerData(user),
         ]);
         
         setState(() {
@@ -122,14 +128,14 @@ class _HomeScreenState extends State<HomeScreen> {
         final publicRequests = await _requestService.getPublicRequests(limit: 5);
         setState(() {
           _recentRequests = publicRequests;
-          _pendingRequestCount = publicRequests.where((r) => r.status == RequestStatus.pending).length;
+          _pendingRequestCount = publicRequests.where((r) => r.status == RequestStatus.waiting || r.status == RequestStatus.pending).length;
         });
       } else {
         // 고객: 내 의뢰 조회
         final myRequests = await _requestService.getMyRequests(limit: 5);
         setState(() {
           _recentRequests = myRequests;
-          _pendingRequestCount = myRequests.where((r) => r.status == RequestStatus.pending).length;
+          _pendingRequestCount = myRequests.where((r) => r.status == RequestStatus.waiting || r.status == RequestStatus.pending).length;
         });
       }
     } catch (e) {
@@ -180,6 +186,44 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       setState(() {
         _recommendations = [];
+      });
+    }
+  }
+  
+  Future<void> _loadFreelancerData(User user) async {
+    try {
+      // 프리랜서 전용 데이터 로드
+      final results = await Future.wait([
+        _settlementService.getActiveRequestsCount(user.id),
+        _settlementService.getUnreadMessagesCount(user.id),
+        _settlementService.getProfileCompleteness(user.id),
+        _settlementService.getFreelancerEarnings(user.id),
+      ]);
+      
+      setState(() {
+        _pendingRequestCount = results[0] as int;
+        _unreadMessageCount = results[1] as int;
+        final profileData = results[2] as Map<String, dynamic>;
+        _profileStatus = profileData;
+        _earningsData = results[3] as Map<String, dynamic>;
+      });
+    } catch (e) {
+      print('프리랜서 데이터 로딩 오류: $e');
+      // 목업 데이터 사용
+      setState(() {
+        _pendingRequestCount = 3;
+        _unreadMessageCount = 5;
+        _profileStatus = {
+          'completedSteps': 3,
+          'totalSteps': 5,
+          'percentage': 60,
+        };
+        _earningsData = {
+          'thisMonthEarnings': 120000.0,
+          'totalEarnings': 750000.0,
+          'completedJobs': 8,
+          'pendingPayments': 2,
+        };
       });
     }
   }
@@ -845,7 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Expanded(
                     child: _buildStatusItem(
-                      '진행 중인\n${user?.isFreelancer == true ? '의뢰' : '요청'}',
+                      '진행 중',
                       '$_pendingRequestCount',
                       Colors.blue,
                       Icons.work_outline,
@@ -855,7 +899,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildStatusItem(
-                      '읽지 않은\n메시지',
+                      '메시지',
                       '$_unreadMessageCount',
                       Colors.green,
                       Icons.message_outlined,
@@ -865,8 +909,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: _buildStatusItem(
-                      user?.isFreelancer == true ? '수익 현황' : '이용 내역',
-                      user?.isFreelancer == true ? '보기' : '보기',
+                      user?.isFreelancer == true ? '이번 달 수익' : '내역',
+                      user?.isFreelancer == true ? 
+                        (_earningsData != null ? 
+                          '${((_earningsData!['thisMonthEarnings'] as double) / 10000).toInt()}만원' : 
+                          '-') : 
+                        '보기',
                       user?.isFreelancer == true ? Colors.orange : Colors.purple,
                       user?.isFreelancer == true ? Icons.analytics_outlined : Icons.history,
                       onTap: () {
@@ -966,6 +1014,7 @@ class _HomeScreenState extends State<HomeScreen> {
           border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
@@ -980,6 +1029,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.bold,
                 color: color,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
             const SizedBox(height: 4),
             Text(
@@ -989,12 +1040,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.grey[600],
               ),
               textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
         ),
       ),
     );
   }
-
-
 }

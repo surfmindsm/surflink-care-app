@@ -41,7 +41,9 @@ extension ServiceTypeExtension on ServiceType {
 
 enum RequestStatus {
   draft,
-  pending, // 매칭대기
+  waiting, // 매칭대기
+  matching, // 매칭중  
+  pending, // 기존 호환성 유지
   matched, // 매칭완료
   in_progress, // 진행중
   completed, // 완료
@@ -53,8 +55,12 @@ extension RequestStatusExtension on RequestStatus {
     switch (this) {
       case RequestStatus.draft:
         return '임시저장';
-      case RequestStatus.pending:
+      case RequestStatus.waiting:
+        return '매칭대기';
+      case RequestStatus.matching:
         return '매칭중';
+      case RequestStatus.pending:
+        return '매칭중'; // 기존 호환성
       case RequestStatus.matched:
         return '매칭완료';
       case RequestStatus.in_progress:
@@ -74,8 +80,12 @@ extension RequestStatusExtension on RequestStatus {
     switch (this) {
       case RequestStatus.draft:
         return Colors.grey;
-      case RequestStatus.pending:
+      case RequestStatus.waiting:
         return Colors.blue;
+      case RequestStatus.matching:
+        return Colors.blue;
+      case RequestStatus.pending:
+        return Colors.blue; // 기존 호환성
       case RequestStatus.matched:
         return Colors.green;
       case RequestStatus.in_progress:

@@ -176,6 +176,12 @@ class RequestCard extends StatelessWidget {
       case RequestStatus.draft:
         color = Colors.grey;
         break;
+      case RequestStatus.waiting:
+        color = Colors.orange;
+        break;
+      case RequestStatus.matching:
+        color = Colors.orange;
+        break;
       case RequestStatus.pending:
         color = Colors.orange;
         break;

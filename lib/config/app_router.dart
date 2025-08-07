@@ -239,7 +239,10 @@ class AppRouter {
         // Settlement Routes
         GoRoute(
           path: '/settlement',
-          builder: (context, state) => const SettlementScreen(),
+          builder: (context, state) => MainWrapper(
+            child: const SettlementScreen(),
+            location: state.matchedLocation,
+          ),
         ),
         
         // Search Routes

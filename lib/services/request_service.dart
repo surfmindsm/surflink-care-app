@@ -224,7 +224,7 @@ class RequestService {
       // Supabase에서 공개 의뢰 데이터 조회 시도
       final response = await _api.from('service_requests')
           .select('*')
-          .eq('status', 'pending')
+          .eq('status', 'waiting')
           .order('created_at', ascending: false)
           .limit(limit ?? 10);
       
@@ -272,9 +272,16 @@ class RequestService {
           case RequestStatus.draft:
             stats['draft'] = (stats['draft'] ?? 0) + 1;
             break;
+          case RequestStatus.waiting:
+            stats['waiting'] = (stats['waiting'] ?? 0) + 1;
+            stats['available'] = (stats['available'] ?? 0) + 1; // 프리랜서 입장에서 지원 가능
+            break;
+          case RequestStatus.matching:
+            stats['matching'] = (stats['matching'] ?? 0) + 1;
+            break;
           case RequestStatus.pending:
             stats['pending'] = (stats['pending'] ?? 0) + 1;
-            stats['available'] = (stats['available'] ?? 0) + 1; // 프리랜서 입장에서 지원 가능
+            stats['available'] = (stats['available'] ?? 0) + 1; // 호환성 유지
             break;
           case RequestStatus.matched:
             stats['matched'] = (stats['matched'] ?? 0) + 1;

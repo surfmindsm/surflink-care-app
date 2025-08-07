@@ -154,6 +154,12 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       case RequestStatus.draft:
         statusColor = Colors.grey;
         break;
+      case RequestStatus.waiting:
+        statusColor = Colors.orange;
+        break;
+      case RequestStatus.matching:
+        statusColor = Colors.orange;
+        break;
       case RequestStatus.pending:
         statusColor = Colors.orange;
         break;

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../config/app_config.dart';
 import '../../models/settlement.dart';
+import '../../services/settlement_service.dart';
+import '../../providers/auth_provider.dart';
 
 class SettlementScreen extends StatefulWidget {
   const SettlementScreen({super.key});
@@ -28,73 +32,74 @@ class _SettlementScreenState extends State<SettlementScreen> with SingleTickerPr
     super.dispose();
   }
 
-  void _loadSettlementData() {
-    // TODO: 실제 API 호출로 대체
-    Future.delayed(const Duration(milliseconds: 500), () {
-      setState(() {
-        _settlements = _getSampleSettlements();
-        _stats = _getSampleStats();
-        _isLoading = false;
-      });
+  void _loadSettlementData() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
     });
+
+    try {
+      // AuthProvider를 사용하여 사용자 정보 가져오기
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.currentUser;
+      
+      if (currentUser == null) {
+        if (mounted) {
+          context.go('/login');
+        }
+        return;
+      }
+
+      // 프리랜서 전용 화면이므로 사용자 타입 확인
+      if (!currentUser.isFreelancer) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('프리랜서 회원만 이용할 수 있는 기능입니다.'),
+            ),
+          );
+          context.go('/home');
+        }
+        return;
+      }
+
+      // 실제 API 호출
+      final settlements = await settlementService.getSettlements(currentUser.id);
+      final stats = await settlementService.getSettlementStats(currentUser.id);
+
+      if (mounted) {
+        setState(() {
+          _settlements = settlements;
+          _stats = stats;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('정산 데이터 로드 에러: $e');
+      if (mounted) {
+        setState(() {
+          _settlements = [];
+          _stats = {};
+          _isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('데이터를 불러오는 중 오류가 발생했습니다.'),
+          ),
+        );
+      }
+    }
   }
 
-  List<Settlement> _getSampleSettlements() {
-    return [
-      Settlement(
-        id: '1',
-        amount: 150000,
-        fee: 15000,
-        netAmount: 135000,
-        status: SettlementStatus.completed,
-        requestDate: DateTime.now().subtract(const Duration(days: 2)),
-        completedDate: DateTime.now().subtract(const Duration(days: 1)),
-        serviceType: '아이 돌봄',
-        clientName: '김고객',
-      ),
-      Settlement(
-        id: '2',
-        amount: 200000,
-        fee: 20000,
-        netAmount: 180000,
-        status: SettlementStatus.pending,
-        requestDate: DateTime.now().subtract(const Duration(days: 1)),
-        serviceType: '영어 과외',
-        clientName: '박학부모',
-      ),
-      Settlement(
-        id: '3',
-        amount: 100000,
-        fee: 10000,
-        netAmount: 90000,
-        status: SettlementStatus.completed,
-        requestDate: DateTime.now().subtract(const Duration(days: 5)),
-        completedDate: DateTime.now().subtract(const Duration(days: 3)),
-        serviceType: '심리 상담',
-        clientName: '이내담자',
-      ),
-    ];
-  }
 
-  Map<String, dynamic> _getSampleStats() {
-    return {
-      'totalEarnings': 750000,
-      'thisMonthEarnings': 350000,
-      'pendingAmount': 200000,
-      'totalFee': 75000,
-      'completedServices': 15,
-      'averageRating': 4.8,
-    };
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text('정산/수익 관리'),
         backgroundColor: Color(AppConfig.primaryColor),
         foregroundColor: Colors.white,
@@ -549,16 +554,38 @@ class _SettlementScreenState extends State<SettlementScreen> with SingleTickerPr
     );
   }
 
-  void _cancelSettlement(Settlement settlement) {
-    // TODO: 실제 API 호출로 대체
-    setState(() {
-      _settlements.removeWhere((s) => s.id == settlement.id);
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('정산 요청이 취소되었습니다.'),
-      ),
-    );
+  void _cancelSettlement(Settlement settlement) async {
+    try {
+      final success = await settlementService.cancelSettlement(settlement.id);
+      
+      if (success && mounted) {
+        setState(() {
+          _settlements.removeWhere((s) => s.id == settlement.id);
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('정산 요청이 취소되었습니다.'),
+          ),
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('정산 취소에 실패했습니다. 다시 시도해주세요.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      print('정산 취소 에러: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('정산 취소 중 오류가 발생했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

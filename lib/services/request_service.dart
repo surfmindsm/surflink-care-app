@@ -250,30 +250,63 @@ class RequestService {
   Future<Map<String, int>> getRequestStats() async {
     await Future.delayed(const Duration(milliseconds: 600));
     
-    // TODO: 실제 API 호출
-    /*
-    final response = await http.get(
-      Uri.parse('$_baseUrl/requests/stats'),
-      headers: {
-        'Authorization': 'Bearer ${await _getAccessToken()}',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      return data.cast<String, int>();
-    } else {
-      throw Exception('의뢰 통계 조회에 실패했습니다.');
+    try {
+      // 실제 데이터 기반으로 통계 계산
+      final allRequests = await getMyRequests();
+      
+      final stats = <String, int>{
+        'total': allRequests.length,
+        'draft': 0,
+        'pending': 0,
+        'matched': 0,
+        'in_progress': 0,
+        'completed': 0,
+        'cancelled': 0,
+        'available': 0,
+        'applied': 0,
+      };
+      
+      // 상태별로 카운트
+      for (final request in allRequests) {
+        switch (request.status) {
+          case RequestStatus.draft:
+            stats['draft'] = (stats['draft'] ?? 0) + 1;
+            break;
+          case RequestStatus.pending:
+            stats['pending'] = (stats['pending'] ?? 0) + 1;
+            stats['available'] = (stats['available'] ?? 0) + 1; // 프리랜서 입장에서 지원 가능
+            break;
+          case RequestStatus.matched:
+            stats['matched'] = (stats['matched'] ?? 0) + 1;
+            break;
+          case RequestStatus.in_progress:
+            stats['in_progress'] = (stats['in_progress'] ?? 0) + 1;
+            break;
+          case RequestStatus.completed:
+            stats['completed'] = (stats['completed'] ?? 0) + 1;
+            break;
+          case RequestStatus.cancelled:
+            stats['cancelled'] = (stats['cancelled'] ?? 0) + 1;
+            break;
+        }
+      }
+      
+      return stats;
+    } catch (e) {
+      print('통계 조회 오류: $e');
+      // 오류 시 모두 0으로 반환
+      return {
+        'total': 0,
+        'draft': 0,
+        'pending': 0,
+        'matched': 0,
+        'in_progress': 0,
+        'completed': 0,
+        'cancelled': 0,
+        'available': 0,
+        'applied': 0,
+      };
     }
-    */
-    
-    return {
-      'total': 47,
-      'pending': 12,
-      'in_progress': 8,
-      'completed': 23,
-      'cancelled': 4,
-    };
   }
 
   // Mock 데이터 생성 메서드들

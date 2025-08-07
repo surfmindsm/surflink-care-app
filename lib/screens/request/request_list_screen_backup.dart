@@ -97,14 +97,7 @@ class _RequestListScreenState extends State<RequestListScreen>
               indicatorColor: Colors.white,
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white70,
-              tabs: isFreelancer ? [
-                Tab(text: '전체 (${_stats['total'] ?? 0})'),
-                Tab(text: '지원가능 (${_stats['available'] ?? 0})'),
-                Tab(text: '지원함 (${_stats['applied'] ?? 0})'),
-                Tab(text: '매칭완료 (${_stats['matched'] ?? 0})'),
-                Tab(text: '진행중 (${_stats['in_progress'] ?? 0})'),
-                Tab(text: '완료 (${_stats['completed'] ?? 0})'),
-              ] : [
+              tabs: [
                 Tab(text: '전체 (${_stats['total'] ?? 0})'),
                 Tab(text: '임시저장 (${_stats['draft'] ?? 0})'),
                 Tab(text: '매칭중 (${_stats['pending'] ?? 0})'),
@@ -126,20 +119,13 @@ class _RequestListScreenState extends State<RequestListScreen>
                   onRefresh: _refreshData,
                   child: TabBarView(
                     controller: _tabController,
-                    children: isFreelancer ? [
-                      _buildRequestList(null, isFreelancer), // 전체
-                      _buildAvailableRequestsList(), // 지원 가능한 의뢰
-                      _buildAppliedRequestsList(), // 지원한 의뢰
-                      _buildRequestList(RequestStatus.matched, isFreelancer),
-                      _buildRequestList(RequestStatus.in_progress, isFreelancer),
-                      _buildRequestList(RequestStatus.completed, isFreelancer),
-                    ] : [
-                      _buildRequestList(null, isFreelancer), // 전체
-                      _buildRequestList(RequestStatus.draft, isFreelancer),
-                      _buildRequestList(RequestStatus.pending, isFreelancer),
-                      _buildRequestList(RequestStatus.matched, isFreelancer),
-                      _buildRequestList(RequestStatus.in_progress, isFreelancer),
-                      _buildRequestList(RequestStatus.completed, isFreelancer),
+                    children: [
+                      _buildRequestList(null), // 전체
+                      _buildRequestList(RequestStatus.draft),
+                      _buildRequestList(RequestStatus.pending),
+                      _buildRequestList(RequestStatus.matched),
+                      _buildRequestList(RequestStatus.in_progress),
+                      _buildRequestList(RequestStatus.completed),
                     ],
                   ),
                 ),
@@ -151,11 +137,9 @@ class _RequestListScreenState extends State<RequestListScreen>
             label: const Text('의뢰 등록'),
           ),
         );
-      },
-    );
   }
 
-  Widget _buildRequestList(RequestStatus? status, bool isFreelancer) {
+  Widget _buildRequestList(RequestStatus? status) {
     final filteredRequests = status == null 
         ? _requests
         : _requests.where((r) => r.status == status).toList();
@@ -166,25 +150,34 @@ class _RequestListScreenState extends State<RequestListScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isFreelancer ? Icons.work_outline : Icons.assignment_outlined,
-              size: 64,
+              Icons.inbox_outlined,
+              size: 80,
               color: Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              isFreelancer 
-                  ? (status == null ? '아직 의뢰가 없습니다' : '해당 상태의 의뢰가 없습니다')
-                  : (status == null ? '등록한 의뢰가 없습니다' : '해당 상태의 의뢰가 없습니다'),
+              status == null ? '등록된 의뢰가 없습니다' : '${status.displayName} 의뢰가 없습니다',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
               ),
             ),
-            if (!isFreelancer) ...[
-              const SizedBox(height: 16),
-              ElevatedButton(
+            const SizedBox(height: 8),
+            Text(
+              status == RequestStatus.draft 
+                  ? '의뢰를 임시저장하여 나중에 완성할 수 있습니다'
+                  : '새로운 의뢰를 등록해보세요',
+              style: TextStyle(
+                color: Colors.grey[500],
+              ),
+            ),
+            if (status == null || status == RequestStatus.draft) ...[
+              const SizedBox(height: 24),
+              CustomButton(
+                text: '의뢰 등록',
                 onPressed: () => _navigateToCreateRequest(),
-                child: const Text('첫 의뢰 등록하기'),
+                type: ButtonType.primary,
               ),
             ],
           ],
@@ -199,156 +192,92 @@ class _RequestListScreenState extends State<RequestListScreen>
         final request = filteredRequests[index];
         return _RequestCard(
           request: request,
-          isFreelancer: isFreelancer,
           onTap: () => _navigateToRequestDetail(request),
-          onEdit: !isFreelancer ? () => _navigateToEditRequest(request) : null,
-          onDelete: !isFreelancer ? () => _showDeleteDialog(request) : null,
-          onApply: isFreelancer ? () => _applyToRequest(request) : null,
+          onEdit: () => _navigateToEditRequest(request),
+          onDelete: () => _showDeleteDialog(request),
         );
       },
     );
   }
 
-  Widget _buildAvailableRequestsList() {
-    // 프리랜서가 지원 가능한 의뢰 목록
-    final availableRequests = _requests
-        .where((r) => r.status == RequestStatus.pending)
-        .toList();
-
-    return _buildRequestList(RequestStatus.pending, true);
-  }
-
-  Widget _buildAppliedRequestsList() {
-    // 프리랜서가 지원한 의뢰 목록 (임시 구현)
-    final appliedRequests = _requests
-        .where((r) => r.status == RequestStatus.matched || r.status == RequestStatus.in_progress)
-        .toList();
-
-    if (appliedRequests.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.assignment_turned_in_outlined,
-              size: 64,
-              color: Colors.grey,
-            ),
-            SizedBox(height: 16),
-            Text('지원한 의뢰가 없습니다'),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: appliedRequests.length,
-      itemBuilder: (context, index) {
-        final request = appliedRequests[index];
-        return _RequestCard(
-          request: request,
-          isFreelancer: true,
-          onTap: () => _navigateToRequestDetail(request),
-        );
-      },
-    );
-  }
-
-  void _navigateToCreateRequest() {
-    Navigator.push(
+  void _navigateToCreateRequest() async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => const RequestCreateScreen(),
       ),
-    ).then((result) {
-      if (result == true) {
-        _loadData(); // 의뢰 생성 후 목록 새로고침
-      }
-    });
+    );
+
+    if (result == true) {
+      _loadData();
+    }
   }
 
-  void _navigateToEditRequest(ServiceRequest request) {
-    Navigator.push(
+  void _navigateToEditRequest(ServiceRequest request) async {
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => RequestCreateScreen(request: request),
+        builder: (context) => RequestCreateScreen(existingRequest: request),
       ),
-    ).then((result) {
-      if (result == true) {
-        _loadData(); // 의뢰 수정 후 목록 새로고침
-      }
-    });
+    );
+
+    if (result == true) {
+      _loadData();
+    }
   }
 
   void _navigateToRequestDetail(ServiceRequest request) {
-    // context.go('/requests/${request.id}');
+    // TODO: RequestDetailScreen으로 이동
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('의뢰 상세 페이지로 이동')),
-    );
-  }
-
-  void _applyToRequest(ServiceRequest request) {
-    // 프리랜서가 의뢰에 지원하는 기능
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('의뢰 지원'),
-        content: Text('${request.title}에 지원하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('의뢰에 지원했습니다')),
-              );
-            },
-            child: const Text('지원하기'),
-          ),
-        ],
-      ),
+      const SnackBar(content: Text('의뢰 상세 화면으로 이동 (구현 예정)')),
     );
   }
 
   void _showDeleteDialog(ServiceRequest request) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('의뢰 삭제'),
-        content: Text('${request.title}을(를) 삭제하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteRequest(request);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('삭제'),
-          ),
-        ],
-      ),
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('의뢰 삭제'),
+          content: const Text('정말로 이 의뢰를 삭제하시겠습니까?\n삭제된 의뢰는 복구할 수 없습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _deleteRequest(request);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('삭제'),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Future<void> _deleteRequest(ServiceRequest request) async {
     try {
-      await _requestService.deleteRequest(request.id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('의뢰가 삭제되었습니다')),
-      );
-      _loadData(); // 목록 새로고침
+      final result = await _requestService.deleteRequest(request.id);
+      
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _loadData();
+      } else {
+        throw Exception(result['message']);
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('삭제 중 오류가 발생했습니다: $e'),
+          content: Text('의뢰 삭제 중 오류가 발생했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -358,19 +287,15 @@ class _RequestListScreenState extends State<RequestListScreen>
 
 class _RequestCard extends StatelessWidget {
   final ServiceRequest request;
-  final bool isFreelancer;
-  final VoidCallback? onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-  final VoidCallback? onApply;
+  final VoidCallback onTap;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _RequestCard({
     required this.request,
-    required this.isFreelancer,
-    this.onTap,
-    this.onEdit,
-    this.onDelete,
-    this.onApply,
+    required this.onTap,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   @override
@@ -390,14 +315,13 @@ class _RequestCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: request.serviceType.color.withOpacity(0.1),
-                      border: Border.all(color: request.serviceType.color),
+                      color: request.serviceType.color,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       request.serviceType.displayName,
-                      style: TextStyle(
-                        color: request.serviceType.color,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -476,46 +400,26 @@ class _RequestCard extends StatelessWidget {
                   ],
                 ],
               ),
-              // 액션 버튼들 (역할에 따라 다름)
-              if (isFreelancer) ...[
-                if (request.status == RequestStatus.pending && onApply != null) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: onApply,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
+              if (request.status == RequestStatus.draft ||
+                  request.status == RequestStatus.pending) ...[
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: onDelete,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.red,
                       ),
-                      child: const Text('지원하기'),
+                      child: const Text('삭제'),
                     ),
-                  ),
-                ],
-              ] else ...[
-                if (request.status == RequestStatus.draft ||
-                    request.status == RequestStatus.pending) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (onDelete != null) 
-                        TextButton(
-                          onPressed: onDelete,
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                          child: const Text('삭제'),
-                        ),
-                      const SizedBox(width: 8),
-                      if (onEdit != null)
-                        TextButton(
-                          onPressed: onEdit,
-                          child: const Text('수정'),
-                        ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onEdit,
+                      child: const Text('수정'),
+                    ),
+                  ],
+                ),
               ],
             ],
           ),

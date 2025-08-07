@@ -120,64 +120,58 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
             title: Text(isFreelancer ? '고객 채팅' : '전문가 채팅'),
             backgroundColor: Colors.blue[700],
             foregroundColor: Colors.white,
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white70,
-              indicatorColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _refreshChatRooms,
+              child: _filteredChatRooms.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredChatRooms.length,
+                      itemBuilder: (context, index) {
+                        return _ChatRoomCard(
+                          chatRoom: _filteredChatRooms[index],
+                          onTap: () => _navigateToChat(_filteredChatRooms[index]),
+                          onLongPress: () => _showChatRoomOptions(_filteredChatRooms[index]),
+                        );
+                      },
+                    ),
             ),
-          ),
-          body: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _refreshChatRooms,
-                  child: _filteredChatRooms.isEmpty
-                      ? _buildEmptyState(isFreelancer)
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredChatRooms.length,
-                          itemBuilder: (context, index) {
-                            return _ChatRoomCard(
-                              chatRoom: _filteredChatRooms[index],
-                              isFreelancer: isFreelancer,
-                              onTap: () => _navigateToChat(_filteredChatRooms[index]),
-                              onLongPress: () => _showChatRoomOptions(_filteredChatRooms[index]),
-                            );
-                          },
-                        ),
-                ),
-        );
-      },
     );
   }
 
-  Widget _buildEmptyState(bool isFreelancer) {
+  Widget _buildEmptyState() {
     String message;
     IconData icon;
     
-    switch (_tabController.index) {
-      case 0:
-        message = isFreelancer ? '고객과의 채팅이 없습니다' : '전문가와의 채팅이 없습니다';
-        icon = Icons.chat_bubble_outline;
+    final currentFilter = _tabFilters[_tabController.index];
+    switch (currentFilter) {
+      case ChatRoomType.matching:
+        message = '매칭 채팅이 없습니다';
+        icon = Icons.people;
         break;
-      case 1:
-        message = '매칭 관련 채팅이 없습니다';
-        icon = Icons.people_outline;
+      case ChatRoomType.contract:
+        message = '계약 채팅이 없습니다';
+        icon = Icons.description;
         break;
-      case 2:
-        message = '계약 관련 채팅이 없습니다';
-        icon = Icons.assignment_outlined;
-        break;
-      case 3:
-        message = '지원 관련 채팅이 없습니다';
-        icon = Icons.support_agent_outlined;
+      case ChatRoomType.support:
+        message = '지원 채팅이 없습니다';
+        icon = Icons.support_agent;
         break;
       default:
-        message = '채팅이 없습니다';
-        icon = Icons.chat_bubble_outline;
+        message = '채팅방이 없습니다';
+        icon = Icons.chat;
     }
-
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -195,27 +189,6 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
               color: Colors.grey[600],
             ),
           ),
-          if (isFreelancer) ...[
-            const SizedBox(height: 16),
-            Text(
-              '의뢰에 지원하면 고객과 채팅할 수 있습니다',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ] else ...[
-            const SizedBox(height: 16),
-            Text(
-              '의뢰를 등록하고 전문가를 찾아보세요',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ],
       ),
     );
@@ -226,156 +199,163 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
   }
 
   void _navigateToChat(ChatRoom chatRoom) {
-    context.go('/chats/${chatRoom.id}');
+    context.push('/chat/${chatRoom.id}', extra: chatRoom);
   }
 
   void _showChatRoomOptions(ChatRoom chatRoom) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.mark_chat_read),
-              title: const Text('읽음 처리'),
-              onTap: () {
-                Navigator.pop(context);
-                _markAsRead(chatRoom);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                chatRoom.isMuted ? Icons.volume_up : Icons.volume_off,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.mark_chat_read),
+                title: const Text('읽음으로 표시'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _markAsRead(chatRoom);
+                },
               ),
-              title: Text(
-                chatRoom.isMuted ? '알림 켜기' : '알림 끄기',
+              ListTile(
+                leading: const Icon(Icons.notifications_off),
+                title: const Text('알림 끄기'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _muteNotifications(chatRoom);
+                },
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _muteNotifications(chatRoom);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.report, color: Colors.red),
-              title: const Text('신고하기', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showReportDialog(chatRoom);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.exit_to_app, color: Colors.red),
-              title: const Text('채팅방 나가기', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showLeaveDialog(chatRoom);
-              },
-            ),
-          ],
-        ),
-      ),
+              if (chatRoom.type != ChatRoomType.support)
+                ListTile(
+                  leading: const Icon(Icons.report, color: Colors.orange),
+                  title: const Text('신고하기'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showReportDialog(chatRoom);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.exit_to_app, color: Colors.red),
+                title: const Text('채팅방 나가기'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showLeaveDialog(chatRoom);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _markAsRead(ChatRoom chatRoom) async {
+  void _markAsRead(ChatRoom chatRoom) async {
     try {
-      await _chatService.markChatRoomAsRead(chatRoom.id);
+      await _chatService.markMessagesAsRead(chatRoom.id);
       
       setState(() {
         final index = _allChatRooms.indexWhere((room) => room.id == chatRoom.id);
         if (index != -1) {
-          _allChatRooms[index] = chatRoom.copyWith(unreadCount: 0);
+          final room = _allChatRooms[index];
+          _allChatRooms[index] = ChatRoom(
+            id: room.id,
+            name: room.name,
+            type: room.type,
+            status: room.status,
+            participantIds: room.participantIds,
+            participants: room.participants,
+            requestId: room.requestId,
+            contractId: room.contractId,
+            matchingId: room.matchingId,
+            lastMessage: room.lastMessage,
+            unreadCount: 0,
+            createdAt: room.createdAt,
+            updatedAt: room.updatedAt,
+            lastActivityAt: room.lastActivityAt,
+            metadata: room.metadata,
+          );
           _filterChatRooms();
         }
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('읽음 처리되었습니다'),
-          duration: Duration(seconds: 1),
+          content: Text('읽음으로 표시했습니다'),
+          backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('읽음 처리에 실패했습니다: $e'),
+          content: Text('읽음 표시에 실패했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  Future<void> _muteNotifications(ChatRoom chatRoom) async {
-    try {
-      await _chatService.toggleNotifications(chatRoom.id, !chatRoom.isMuted);
-      
-      setState(() {
-        final index = _allChatRooms.indexWhere((room) => room.id == chatRoom.id);
-        if (index != -1) {
-          _allChatRooms[index] = chatRoom.copyWith(isMuted: !chatRoom.isMuted);
-          _filterChatRooms();
-        }
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(chatRoom.isMuted ? '알림이 켜졌습니다' : '알림이 꺼졌습니다'),
-          duration: const Duration(seconds: 1),
+  void _muteNotifications(ChatRoom chatRoom) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${chatRoom.name} 알림이 꺼졌습니다'),
+        action: SnackBarAction(
+          label: '실행취소',
+          onPressed: () {},
         ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('설정 변경에 실패했습니다: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+      ),
+    );
   }
 
   void _showReportDialog(ChatRoom chatRoom) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('신고하기'),
-        content: const Text('이 채팅방을 신고하시겠습니까?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _reportUser(chatRoom);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('신고'),
-          ),
-        ],
-      ),
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('사용자 신고'),
+          content: Text('${chatRoom.getOtherParticipant('current_user')?.name ?? '상대방'}님을 신고하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _reportUser(chatRoom);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('신고'),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Future<void> _reportUser(ChatRoom chatRoom) async {
+  void _reportUser(ChatRoom chatRoom) async {
     try {
-      await _chatService.reportChatRoom(
+      final otherParticipant = chatRoom.getOtherParticipant('current_user');
+      if (otherParticipant == null) return;
+
+      final result = await _chatService.reportUser(
         chatRoom.id,
-        '부적절한 채팅 내용',
+        otherParticipant.userId,
+        '부적절한 행동',
       );
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('신고가 접수되었습니다. 검토 후 조치하겠습니다.'),
-        ),
-      );
+
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('신고 접수에 실패했습니다: $e'),
+          content: Text('신고에 실패했습니다: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -385,39 +365,46 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
   void _showLeaveDialog(ChatRoom chatRoom) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('채팅방 나가기'),
-        content: const Text('정말로 이 채팅방을 나가시겠습니까?\n나간 후에는 이전 대화 내용을 볼 수 없습니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _leaveChatRoom(chatRoom);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('나가기'),
-          ),
-        ],
-      ),
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('채팅방 나가기'),
+          content: const Text('채팅방을 나가시겠습니까?\n\n채팅 기록이 삭제되며 복구할 수 없습니다.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _leaveChatRoom(chatRoom);
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('나가기'),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Future<void> _leaveChatRoom(ChatRoom chatRoom) async {
+  void _leaveChatRoom(ChatRoom chatRoom) async {
     try {
-      await _chatService.leaveChatRoom(chatRoom.id);
-      
-      setState(() {
-        _allChatRooms.removeWhere((room) => room.id == chatRoom.id);
-        _filterChatRooms();
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('채팅방을 나갔습니다')),
-      );
+      final result = await _chatService.leaveChatRoom(chatRoom.id);
+
+      if (result['success']) {
+        setState(() {
+          _allChatRooms.removeWhere((room) => room.id == chatRoom.id);
+          _filterChatRooms();
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message']),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -431,51 +418,67 @@ class _ChatListScreenState extends State<ChatListScreen> with TickerProviderStat
 
 class _ChatRoomCard extends StatelessWidget {
   final ChatRoom chatRoom;
-  final bool isFreelancer;
-  final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   const _ChatRoomCard({
     required this.chatRoom,
-    required this.isFreelancer,
-    this.onTap,
-    this.onLongPress,
+    required this.onTap,
+    required this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
+    final otherParticipant = chatRoom.getOtherParticipant('current_user');
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              // 프로필 이미지
-              CircleAvatar(
-                radius: 24,
-                backgroundImage: chatRoom.otherUserProfile?.profileImageUrl != null 
-                    ? NetworkImage(chatRoom.otherUserProfile!.profileImageUrl!)
-                    : null,
-                child: chatRoom.otherUserProfile?.profileImageUrl == null
-                    ? Text(
-                        chatRoom.otherUserName.isNotEmpty 
-                            ? chatRoom.otherUserName[0].toUpperCase()
-                            : '?',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+              // 프로필 이미지 및 온라인 상태
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.grey[300],
+                    backgroundImage: otherParticipant?.profileImageUrl != null
+                        ? NetworkImage(otherParticipant!.profileImageUrl!)
+                        : null,
+                    child: otherParticipant?.profileImageUrl == null
+                        ? Text(
+                            otherParticipant?.name.substring(0, 1) ?? '?',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
+                  if (otherParticipant?.isOnline == true)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
                         ),
-                      )
-                    : null,
+                      ),
+                    ),
+                ],
               ),
-              
               const SizedBox(width: 12),
               
-              // 채팅 정보
+              // 채팅방 정보
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,22 +487,21 @@ class _ChatRoomCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            isFreelancer 
-                                ? '고객: ${chatRoom.otherUserName}'
-                                : '전문가: ${chatRoom.otherUserName}',
+                            chatRoom.name,
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        // 채팅방 타입 뱃지
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: chatRoom.type.color.withOpacity(0.1),
-                            border: Border.all(color: chatRoom.type.color),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

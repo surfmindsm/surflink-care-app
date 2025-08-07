@@ -13,6 +13,10 @@ class _ApiTestScreenState extends State<ApiTestScreen> {
   final _scrollController = ScrollController();
   final List<ApiTestLog> _logs = [];
   bool _isLoading = false;
+  
+  // 테스트용 계정 정보
+  String? _lastCreatedEmail;
+  String _testPassword = 'test123456';
 
   @override
   void dispose() {
@@ -59,18 +63,29 @@ class _ApiTestScreenState extends State<ApiTestScreen> {
   // 회원가입 테스트 (Edge Function)
   Future<void> _testSignup() async {
     _addLog('[회원가입] 테스트 시작', ApiLogType.info);
+    
+    // 무작위 이메일 생성
+    final testEmail = 'test-${DateTime.now().millisecondsSinceEpoch}@example.com';
+    _addLog('생성할 계정: $testEmail', ApiLogType.info);
+    _addLog('비밀번호: $_testPassword', ApiLogType.info);
+    
     setState(() => _isLoading = true);
     
     try {
       final response = await apiService.invokeFunction('auth-signup', body: {
-        'email': 'test-${DateTime.now().millisecondsSinceEpoch}@example.com',
-        'password': 'test123456',
+        'email': testEmail,
+        'password': _testPassword,
         'user_type': 'customer',
         'full_name': '테스트 사용자',
         'phone': '010-1234-5678',
       });
       
+      // 성공 시 마지막 생성 이메일 저장
+      _lastCreatedEmail = testEmail;
+      
       _addLog('[회원가입] 성공', ApiLogType.success);
+      _addLog('생성된 계정: $testEmail', ApiLogType.success);
+      _addLog('→ 이제 "로그인" 버튼으로 이 계정을 테스트할 수 있습니다', ApiLogType.info);
       _addLog('응답 데이터: $response', ApiLogType.info);
     } catch (e) {
       _addLog('[회원가입] 실패: $e', ApiLogType.error);
@@ -82,21 +97,36 @@ class _ApiTestScreenState extends State<ApiTestScreen> {
   // 로그인 테스트
   Future<void> _testLogin() async {
     _addLog('[로그인] 테스트 시작', ApiLogType.info);
-    _addLog('Email: test@example.com', ApiLogType.info);
-    _addLog('Password: test123456', ApiLogType.info);
+    
+    // 테스트 계정 결정
+    String testEmail;
+    if (_lastCreatedEmail != null) {
+      testEmail = _lastCreatedEmail!;
+      _addLog('최근 생성된 계정으로 로그인 시도', ApiLogType.info);
+    } else {
+      testEmail = 'test@example.com';
+      _addLog('기본 테스트 계정으로 로그인 시도', ApiLogType.info);
+    }
+    
+    _addLog('Email: $testEmail', ApiLogType.info);
+    _addLog('Password: $_testPassword', ApiLogType.info);
     
     setState(() => _isLoading = true);
     
     try {
       final response = await apiService.post('/auth/v1/token', data: {
-        'email': 'test@example.com',
-        'password': 'test123456',
+        'email': testEmail,
+        'password': _testPassword,
       });
       
       _addLog('[로그인] 성공: ${response.statusCode}', ApiLogType.success);
+      _addLog('로그인 성공한 계정: $testEmail', ApiLogType.success);
       _addLog('응답 데이터: ${response.data}', ApiLogType.info);
     } catch (e) {
       _addLog('[로그인] 실패: $e', ApiLogType.error);
+      if (_lastCreatedEmail == null) {
+        _addLog('💡 팁: 먼저 "회원가입" 버튼으로 테스트 계정을 만들어보세요', ApiLogType.warning);
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -231,8 +261,10 @@ class _ApiTestScreenState extends State<ApiTestScreen> {
   Future<void> _runAllTests() async {
     setState(() {
       _logs.clear();
+      _lastCreatedEmail = null; // 테스트 시작 시 계정 상태 초기화
     });
     _addLog('=== 전체 테스트 시작 ===', ApiLogType.info);
+    _addLog('테스트 계정 상태 초기화', ApiLogType.info);
     
     await _testBasicConnection();
     await Future.delayed(const Duration(milliseconds: 500));

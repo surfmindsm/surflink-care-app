@@ -63,21 +63,32 @@ class _MainWrapperState extends State<MainWrapper> {
       _selectedIndex = index;
     });
 
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isFreelancer = authProvider.currentUser?.isFreelancer == true;
+
     switch (index) {
       case 0:
         context.go('/home');
         break;
       case 1:
+        // 프리랜서: 일거리 (의뢰 목록), 고객: 내 의뢰
         context.go('/requests');
         break;
       case 2:
+        // 프리랜서: 커뮤니티 (다른 프리랜서 목록), 고객: 전문가
         context.go('/freelancers');
         break;
       case 3:
         context.go('/chats');
         break;
       case 4:
-        context.go('/profile');
+        if (isFreelancer) {
+          // 프리랜서: 수익 현황
+          context.go('/settlement');
+        } else {
+          // 고객: 마이 페이지 (프로필)
+          context.go('/profile');
+        }
         break;
     }
   }
@@ -108,6 +119,7 @@ class _MainWrapperState extends State<MainWrapper> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.currentUser;
+        final isFreelancer = user?.isFreelancer == true;
         
         return BottomNavigationBar(
           currentIndex: _selectedIndex,
@@ -122,24 +134,24 @@ class _MainWrapperState extends State<MainWrapper> {
               label: '홈',
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.list_alt_outlined),
-              activeIcon: const Icon(Icons.list_alt),
-              label: user?.isFreelancer == true ? '의뢰' : '내 의뢰',
+              icon: Icon(isFreelancer ? Icons.work_outline : Icons.list_alt_outlined),
+              activeIcon: Icon(isFreelancer ? Icons.work : Icons.list_alt),
+              label: isFreelancer ? '일거리' : '내 의뢰',
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.people_outline),
-              activeIcon: const Icon(Icons.people),
-              label: user?.isFreelancer == true ? '경쟁자' : '전문가',
+              icon: Icon(isFreelancer ? Icons.group_outlined : Icons.people_outline),
+              activeIcon: Icon(isFreelancer ? Icons.group : Icons.people),
+              label: isFreelancer ? '커뮤니티' : '전문가',
             ),
             const BottomNavigationBarItem(
               icon: Icon(Icons.chat_bubble_outline),
               activeIcon: Icon(Icons.chat_bubble),
               label: '채팅',
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: '프로필',
+            BottomNavigationBarItem(
+              icon: Icon(isFreelancer ? Icons.account_balance_wallet_outlined : Icons.person_outline),
+              activeIcon: Icon(isFreelancer ? Icons.account_balance_wallet : Icons.person),
+              label: isFreelancer ? '수익' : '마이',
             ),
           ],
         );

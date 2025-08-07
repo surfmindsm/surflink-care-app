@@ -22,7 +22,7 @@ class FreelancerService {
           .select('''
             id, email, name, phone, user_type, avatar_url, is_verified, created_at, updated_at,
             freelancer_profiles!inner (
-              hourly_rate, specialties, career_years, rating, review_count
+              bio, hourly_rate, service_categories, experience_years, rating, review_count, service_areas
             )
           ''')
           .eq('user_type', 'freelancer')
@@ -35,7 +35,7 @@ class FreelancerService {
 
       // 서비스 타입 필터링
       if (serviceType != null) {
-        query = query.contains('specialties', [serviceType.name]);
+        query = query.contains('freelancer_profiles.service_categories', [serviceType.name]);
       }
 
       // 지역 필터링
@@ -45,11 +45,10 @@ class FreelancerService {
 
       // 최소 평점 필터링
       if (minRating != null) {
-        query = query.gte('rating', minRating);
+        query = query.gte('freelancer_profiles.rating', minRating);
       }
 
-      // 정렬 및 페이징
-      query = query.order('rating', ascending: false);
+      // 정렬 및 페이징 (단순화)
       if (limit != null) {
         query = query.limit(limit);
       }
@@ -68,12 +67,15 @@ class FreelancerService {
         
         final combinedData = <String, dynamic>{
           ...Map<String, dynamic>.from(json),
-          'introduction': '전문적인 서비스를 제공합니다.',
+          'introduction': freelancerProfile['bio'] ?? '전문적인 서비스를 제공합니다.',
           'rating': freelancerProfile['rating'],
           'review_count': freelancerProfile['review_count'],
-          'specialties': freelancerProfile['specialties'],
-          'career_years': freelancerProfile['career_years'],
+          'specialties': freelancerProfile['service_categories'],
+          'career_years': freelancerProfile['experience_years'],
           'hourly_rate': freelancerProfile['hourly_rate'],
+          'region': (freelancerProfile['service_areas'] as List?)?.isNotEmpty == true
+              ? (freelancerProfile['service_areas'] as List).first
+              : '서울',
           'profile_image_url': json['avatar_url'],
           'status': json['is_verified'] ? 'active' : 'pending',
         };
@@ -93,7 +95,7 @@ class FreelancerService {
           .select('''
             id, email, name, phone, user_type, avatar_url, is_verified, created_at, updated_at,
             freelancer_profiles (
-              hourly_rate, specialties, career_years, rating, review_count
+              bio, hourly_rate, service_categories, experience_years, rating, review_count, service_areas
             )
           ''')
           .eq('id', freelancerId)
@@ -112,11 +114,11 @@ class FreelancerService {
       
       final combinedData = <String, dynamic>{
         ...Map<String, dynamic>.from(response),
-        'introduction': '전문적인 서비스를 제공합니다.',
+        'introduction': freelancerProfile['bio'] ?? '전문적인 서비스를 제공합니다.',
         'rating': freelancerProfile['rating'],
         'review_count': freelancerProfile['review_count'],
-        'specialties': freelancerProfile['specialties'],
-        'career_years': freelancerProfile['career_years'],
+        'specialties': freelancerProfile['service_categories'],
+        'career_years': freelancerProfile['experience_years'],
         'hourly_rate': freelancerProfile['hourly_rate'],
         'profile_image_url': response['avatar_url'],
         'status': response['is_verified'] ? 'active' : 'pending',
@@ -254,7 +256,7 @@ class FreelancerService {
           .select('''
             id, email, name, phone, user_type, avatar_url, is_verified, created_at, updated_at,
             freelancer_profiles!inner (
-              hourly_rate, specialties, career_years, rating, review_count
+              bio, hourly_rate, service_categories, experience_years, rating, review_count, service_areas
             )
           ''')
           .eq('user_type', 'freelancer')
@@ -262,13 +264,11 @@ class FreelancerService {
 
       // 서비스 타입 기반 추천
       if (preferredServiceType != null) {
-        query = query.contains('freelancer_profiles.specialties', [preferredServiceType.name]);
+        query = query.contains('freelancer_profiles.service_categories', [preferredServiceType.name]);
       }
 
-      // 평점순 정렬하여 추천
-      query = query.order('freelancer_profiles.rating', ascending: false)
-          .order('freelancer_profiles.review_count', ascending: false)
-          .limit(limit);
+      // 정렬 및 제한 (단순화된 방식)
+      query = query.limit(limit);
 
       final response = await query;
       
@@ -281,12 +281,13 @@ class FreelancerService {
         
         final combinedData = <String, dynamic>{
           ...Map<String, dynamic>.from(json),
-          'introduction': '전문적인 서비스를 제공합니다.',
+          'introduction': freelancerProfile['bio'] ?? '전문적인 서비스를 제공합니다.',
           'rating': freelancerProfile['rating'],
           'review_count': freelancerProfile['review_count'],
-          'specialties': freelancerProfile['specialties'],
-          'career_years': freelancerProfile['career_years'],
+          'specialties': freelancerProfile['service_categories'],
+          'career_years': freelancerProfile['experience_years'],
           'hourly_rate': freelancerProfile['hourly_rate'],
+          'region': (freelancerProfile['service_areas'] as List?)?.isNotEmpty == true ? (freelancerProfile['service_areas'] as List).first : '서울',
           'profile_image_url': json['avatar_url'],
           'status': json['is_verified'] ? 'active' : 'pending',
         };

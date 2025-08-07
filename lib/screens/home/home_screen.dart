@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user.dart';
+import '../../models/request.dart';
+import '../../models/notification.dart';
 
 import '../../config/app_config.dart';
 import '../../widgets/service_type_card.dart';
@@ -10,6 +12,9 @@ import '../../widgets/recent_activity_card.dart';
 import '../../widgets/quick_action_button.dart';
 
 import '../../services/notification_service.dart';
+import '../../services/request_service.dart';
+import '../../services/chat_service.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +33,15 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isVerified = false;
   Map<String, dynamic>? _profileStatus;
   
+  // 실제 데이터
+  List<ServiceRequest> _recentRequests = [];
+  List<dynamic> _recommendations = [];
+  List<AppNotification> _recentNotifications = [];
+  bool _isLoadingData = true;
+  
   final NotificationService _notificationService = NotificationService();
+  final RequestService _requestService = RequestService();
+  final ChatService _chatService = ChatService();
 
   @override
   void initState() {
@@ -46,26 +59,112 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = authProvider.currentUser;
     
     if (user != null) {
-      // 알림 개수 로드
+      setState(() {
+        _isLoadingData = true;
+      });
+      
       try {
-        final notifications = await _notificationService.getUserNotifications(user.id);
+        // 병렬로 데이터 로드
+        await Future.wait([
+          _loadNotificationData(user),
+          _loadRequestData(user),
+          _loadChatData(user),
+          _loadRecommendationData(user),
+        ]);
+        
         setState(() {
-          _unreadNotificationCount = notifications.length;
+          _isVerified = user.isFreelancer ? (user.name.length > 2) : true;
+          _profileStatus = _getProfileStatus(user);
+          _isLoadingData = false;
         });
       } catch (e) {
-        // 목업 데이터
         setState(() {
-          _unreadNotificationCount = 3;
+          _isLoadingData = false;
+        });
+        print('홈 데이터 로딩 오류: $e');
+      }
+    }
+  }
+  
+  Future<void> _loadNotificationData(User user) async {
+    try {
+      final notifications = await _notificationService.getUserNotifications(user.id);
+      final unreadNotifications = notifications.where((n) => !n.isRead).toList();
+      
+      setState(() {
+        _recentNotifications = notifications.take(3).toList();
+        _unreadNotificationCount = unreadNotifications.length;
+      });
+    } catch (e) {
+      // 목업 데이터 사용
+      setState(() {
+        _unreadNotificationCount = 3;
+        _recentNotifications = [];
+      });
+    }
+  }
+  
+  Future<void> _loadRequestData(User user) async {
+    try {
+      if (user.isFreelancer) {
+        // 프리랜서: 지원 가능한 의뢰 조회
+        final publicRequests = await _requestService.getPublicRequests(limit: 5);
+        setState(() {
+          _recentRequests = publicRequests;
+          _pendingRequestCount = publicRequests.where((r) => r.status == RequestStatus.pending).length;
+        });
+      } else {
+        // 고객: 내 의뢰 조회
+        final myRequests = await _requestService.getMyRequests(limit: 5);
+        setState(() {
+          _recentRequests = myRequests;
+          _pendingRequestCount = myRequests.where((r) => r.status == RequestStatus.pending).length;
         });
       }
+    } catch (e) {
+      setState(() {
+        _pendingRequestCount = user.isFreelancer ? 5 : 1;
+        _recentRequests = [];
+      });
+    }
+  }
+  
+  Future<void> _loadChatData(User user) async {
+    try {
+      final chatRooms = await _chatService.getChatRooms();
+      final unreadCount = chatRooms.fold<int>(0, (sum, room) => sum + room.unreadCount);
       
-      // 기타 상태 정보 로드 (목업)
+      setState(() {
+        _unreadMessageCount = unreadCount;
+      });
+    } catch (e) {
       setState(() {
         _unreadMessageCount = 2;
-        _pendingRequestCount = user.isFreelancer ? 5 : 1;
-
-        _isVerified = user.isFreelancer ? (user.name.length > 2) : true; // 간단한 검증 로직
-        _profileStatus = _getProfileStatus(user);
+      });
+    }
+  }
+  
+  Future<void> _loadRecommendationData(User user) async {
+    try {
+      if (user.isFreelancer) {
+        // 프리랜서: 추천 의뢰
+        final recommendedRequests = await _requestService.getPublicRequests(
+          serviceType: null, // 전체 서비스 타입
+          limit: 5,
+        );
+        setState(() {
+          _recommendations = recommendedRequests;
+        });
+      } else {
+        // 고객: 추천 전문가 (매칭 서비스에서) - 목업 데이터
+        final recommendedFreelancers = <dynamic>[];  // TODO: 매칭 서비스 구현시 원복
+        setState(() {
+          _recommendations = recommendedFreelancers;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _recommendations = [];
       });
     }
   }
@@ -104,8 +203,78 @@ class _HomeScreenState extends State<HomeScreen> {
     if (user.name.length <= 2) missing.add('자기소개');
     return missing;
   }
-
-
+  
+  // 헬퍼 메서드들
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays}일 전';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}시간 전';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}분 전';
+    } else {
+      return '방금 전';
+    }
+  }
+  
+  IconData _getNotificationIcon(String type) {
+    switch (type) {
+      case 'matching':
+        return Icons.people;
+      case 'message':
+        return Icons.message;
+      case 'payment':
+        return Icons.payment;
+      case 'review':
+        return Icons.star;
+      default:
+        return Icons.notifications;
+    }
+  }
+  
+  Color _getNotificationColor(String type) {
+    switch (type) {
+      case 'matching':
+        return Colors.green;
+      case 'message':
+        return Colors.blue;
+      case 'payment':
+        return Colors.orange;
+      case 'review':
+        return Colors.amber;
+      default:
+        return Colors.grey;
+    }
+  }
+  
+  IconData _getServiceIcon(ServiceType serviceType) {
+    switch (serviceType) {
+      case ServiceType.childcare:
+        return Icons.child_care;
+      case ServiceType.eldercare:
+        return Icons.elderly;
+      case ServiceType.tutoring:
+        return Icons.school;
+      case ServiceType.counseling:
+        return Icons.psychology;
+    }
+  }
+  
+  Color _getServiceColor(ServiceType serviceType) {
+    switch (serviceType) {
+      case ServiceType.childcare:
+        return Colors.pink;
+      case ServiceType.eldercare:
+        return Colors.purple;
+      case ServiceType.tutoring:
+        return Colors.blue;
+      case ServiceType.counseling:
+        return Colors.green;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -429,53 +598,77 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecentActivity() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '최근 활동',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final user = authProvider.currentUser;
+        final isFreelancer = user?.isFreelancer == true;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '최근 활동',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/activity'),
+                    child: const Text('전체 보기'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            if (_isLoadingData)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_recentNotifications.isNotEmpty)
+              // 실제 알림 데이터 표시
+              ..._recentNotifications.take(3).map((notification) => RecentActivityCard(
+                title: notification.title,
+                subtitle: notification.content,
+                time: _formatTimeAgo(notification.createdAt),
+                icon: _getNotificationIcon(notification.type.toString().split('.').last),
+                color: _getNotificationColor(notification.type.toString().split('.').last),
+              ))
+            else if (_recentRequests.isNotEmpty)
+              // 최근 의뢰 데이터 표시
+              ..._recentRequests.take(3).map((request) => RecentActivityCard(
+                title: isFreelancer 
+                    ? '새로운 의뢰: ${request.title}'
+                    : '의뢰 상태: ${request.status.displayName}',
+                subtitle: '${request.region} • ${request.serviceType.displayName}',
+                time: _formatTimeAgo(request.updatedAt),
+                icon: _getServiceIcon(request.serviceType),
+                color: _getServiceColor(request.serviceType),
+              ))
+            else
+              // 기본 메시지
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(
+                  child: Text(
+                    '최근 활동이 없습니다',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
               ),
-              TextButton(
-                onPressed: () => context.go('/activity'),
-                child: const Text('전체 보기'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        
-        // 최근 활동 목록 (임시 데이터)
-        const RecentActivityCard(
-          title: '아이 돌봄 의뢰가 매칭되었습니다',
-          subtitle: '김민정 프리랜서와 연결되었습니다',
-          time: '2시간 전',
-          icon: Icons.child_care,
-          color: Colors.pink,
-        ),
-        const RecentActivityCard(
-          title: '새로운 메시지가 도착했습니다',
-          subtitle: '박선생님이 메시지를 보냈습니다',
-          time: '1일 전',
-          icon: Icons.message,
-          color: Colors.blue,
-        ),
-        const RecentActivityCard(
-          title: '서비스 완료 후기를 작성해주세요',
-          subtitle: '영어 과외 서비스가 완료되었습니다',
-          time: '3일 전',
-          icon: Icons.star,
-          color: Colors.orange,
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -483,6 +676,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final user = authProvider.currentUser;
+        final isFreelancer = user?.isFreelancer == true;
         
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,7 +684,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
               child: Text(
-                user?.isFreelancer == true ? '추천 의뢰' : '추천 전문가',
+                isFreelancer ? '추천 의뢰' : '추천 전문가',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -500,80 +694,117 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
-                itemCount: 5,
-                itemBuilder: (context, index) {
-                  return Container(
-                    width: 160,
-                    margin: const EdgeInsets.only(right: 12),
-                    child: Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Color(AppConfig.primaryColor),
-                              child: Text(
-                                '${index + 1}',
-                                style: const TextStyle(color: Colors.white),
-                              ),
+              child: _isLoadingData
+                  ? const Center(child: CircularProgressIndicator())
+                  : _recommendations.isEmpty
+                      ? Center(
+                          child: Text(
+                            isFreelancer ? '추천 의뢰가 없습니다' : '추천 전문가가 없습니다',
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 14,
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              user?.isFreelancer == true 
-                                  ? '아이 돌봄 의뢰'
-                                  : '김민정 선생님',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              user?.isFreelancer == true 
-                                  ? '강남구 • 월~금 오후'
-                                  : '영어, 수학 전문',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const Spacer(),
-                            Row(
-                              children: [
-                                const Icon(Icons.star, size: 12, color: Colors.orange),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '4.${8 + index}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  user?.isFreelancer == true 
-                                      ? '시급 15,000원'
-                                      : '시급 20,000원',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w500,
+                          ),
+                        )
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
+                          itemCount: _recommendations.length,
+                          itemBuilder: (context, index) {
+                            final item = _recommendations[index];
+                            
+                            return Container(
+                              width: 160,
+                              margin: const EdgeInsets.only(right: 12),
+                              child: Card(
+                                child: InkWell(
+                                  onTap: () {
+                                    if (isFreelancer && item is ServiceRequest) {
+                                      context.go('/requests/${item.id}');
+                                    } else {
+                                      // 전문가 상세 페이지로 이동
+                                      context.go('/freelancers/${item.id}');
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: isFreelancer && item is ServiceRequest
+                                              ? _getServiceColor(item.serviceType)
+                                              : Color(AppConfig.primaryColor),
+                                          child: Icon(
+                                            isFreelancer && item is ServiceRequest
+                                                ? _getServiceIcon(item.serviceType)
+                                                : Icons.person,
+                                            color: Colors.white,
+                                            size: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          isFreelancer && item is ServiceRequest
+                                              ? item.title
+                                              : (item is Map ? (item['name'] ?? '전문가') : '전문가'),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          isFreelancer && item is ServiceRequest
+                                              ? '${item.region} • ${item.serviceType.displayName}'
+                                              : (item is Map ? (item['expertise'] ?? '전문 분야') : '전문 분야'),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const Spacer(),
+                                        Row(
+                                          children: [
+                                            if (!isFreelancer) ...[
+                                              const Icon(Icons.star, size: 12, color: Colors.orange),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                (item is Map && item['rating'] != null) 
+                                                    ? item['rating'].toStringAsFixed(1)
+                                                    : '4.8',
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                            ],
+                                            const Spacer(),
+                                            Text(
+                                              isFreelancer && item is ServiceRequest
+                                                  ? '${item.budget != null ? "${(item.budget! / 1000).toInt()}만원" : "협의"}'
+                                                  : (item is Map 
+                                                      ? '시급 ${item['hourlyRate'] ?? "20,000"}원'
+                                                      : '시급 20,000원'),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.blue,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                              ),
+                            );
+                          },
                         ),
-                      ),
-                    ),
-                  );
-                },
-              ),
             ),
           ],
         );

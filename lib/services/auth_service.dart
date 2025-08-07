@@ -1,8 +1,10 @@
 import '../models/user.dart';
 import 'auth_api_service.dart';
+import 'api_service.dart';
 
 class AuthService {
   final AuthApiService _authApiService = AuthApiService();
+  final ApiService apiService = ApiService();
   
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
@@ -74,13 +76,36 @@ class AuthService {
       if (e.toString().contains('DEVELOPMENT_EMAIL_BYPASS_SUCCESS')) {
         print('[개발 모드] 이메일 미확인 사용자 로그인 성공 처리');
         
-        // 더미 사용자 생성 (개발용) - UUID 형식 사용
+        // 실제 DB에서 사용자 정보 조회하여 정확한 userType 사용
+        UserType userType = UserType.customer;
+        String userId = '12345678-1234-1234-1234-123456789012';
+        String userName = '개발용 사용자';
+        
+        try {
+          final profileResponse = await apiService.from('profiles')
+              .select('id, name, user_type')
+              .eq('email', email)
+              .maybeSingle();
+          
+          if (profileResponse != null) {
+            userId = profileResponse['id'];
+            userName = profileResponse['name'] ?? '사용자';
+            userType = profileResponse['user_type'] == 'freelancer' 
+                ? UserType.freelancer 
+                : UserType.customer;
+            print('[개발 모드] 실제 DB 사용자 정보 사용: $userName ($userType)');
+          }
+        } catch (dbError) {
+          print('[개발 모드] DB 조회 실패, 기본값 사용: $dbError');
+        }
+        
+        // 더미 사용자 생성 (개발용) - 실제 DB 정보 기반
         final user = User(
-          id: '12345678-1234-1234-1234-123456789012', // UUID 형식
+          id: userId,
           email: email,
-          name: '개발용 사용자',
+          name: userName,
           phone: null,
-          userType: UserType.customer,
+          userType: userType,
           status: UserStatus.active,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),

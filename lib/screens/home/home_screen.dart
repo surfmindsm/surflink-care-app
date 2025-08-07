@@ -46,7 +46,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadHomeData();
+    
+    // AuthProvider를 서비스들에 설정
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      _requestService.setAuthProvider(authProvider);
+      _notificationService.setAuthProvider(authProvider);
+      _chatService.setAuthProvider(authProvider);
+      
+      _loadHomeData();
+    });
   }
 
   @override

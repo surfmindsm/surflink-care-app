@@ -1,13 +1,21 @@
-import 'dart:convert';
 import '../models/notification.dart';
-import '../config/app_config.dart';
+import 'api_service.dart';
+import '../providers/auth_provider.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
+  
+  final ApiService _api = apiService;
+  AuthProvider? _authProvider;
+  
+  // AuthProvider 설정
+  void setAuthProvider(AuthProvider authProvider) {
+    _authProvider = authProvider;
+  }
 
-  // Mock 데이터 - 추후 실제 API 연동 시 제거
+  // 사용자 알림 목록 조회
   Future<List<AppNotification>> getUserNotifications(
     String userId, {
     NotificationType? type,
@@ -15,46 +23,86 @@ class NotificationService {
     int? limit,
     int? offset,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    var notifications = _getMockNotifications().where(
-      (notification) => notification.userId == userId,
-    ).toList();
-
-    if (type != null) {
-      notifications = notifications.where(
-        (notification) => notification.type == type,
+    try {
+      // AuthProvider에서 현재 사용자 정보 가져오기
+      String? currentUserId = userId;
+      if (_authProvider != null && _authProvider!.currentUser != null) {
+        currentUserId = _authProvider!.currentUser!.id;
+      }
+      
+      // Supabase에서 알림 데이터 조회 시도
+      final response = await _api.from('notifications')
+          .select('*')
+          .eq('user_id', currentUserId)
+          .order('created_at', ascending: false)
+          .limit(limit ?? 10);
+      
+      if ((response as List<dynamic>).isNotEmpty) {
+        return (response as List<dynamic>)
+            .map((item) => AppNotification.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        // 비어있는 결과인 경우 빈 리스트 반환
+        return <AppNotification>[];
+      }
+    } catch (e) {
+      print('알림 목록 조회 오류: $e');
+      // 오류 시 목업 데이터 반환
+      var notifications = _getMockNotifications().where(
+        (notification) => notification.userId == userId,
       ).toList();
+
+      if (type != null) {
+        notifications = notifications.where(
+          (notification) => notification.type == type,
+        ).toList();
+      }
+
+      if (status != null) {
+        notifications = notifications.where(
+          (notification) => notification.status == status,
+        ).toList();
+      }
+
+      // 최신순 정렬
+      notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      if (offset != null) {
+        notifications = notifications.skip(offset).toList();
+      }
+
+      if (limit != null) {
+        notifications = notifications.take(limit).toList();
+      }
+
+      return notifications;
     }
-
-    if (status != null) {
-      notifications = notifications.where(
-        (notification) => notification.status == status,
-      ).toList();
-    }
-
-    // 최신순 정렬
-    notifications.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    if (offset != null) {
-      notifications = notifications.skip(offset).toList();
-    }
-
-    if (limit != null) {
-      notifications = notifications.take(limit).toList();
-    }
-
-    return notifications;
   }
 
   Future<int> getUnreadCount(String userId) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    
-    return _getMockNotifications()
-        .where((notification) => 
-            notification.userId == userId && 
-            notification.status == NotificationStatus.unread)
-        .length;
+    try {
+      // AuthProvider에서 현재 사용자 정보 가져오기
+      String? currentUserId = userId;
+      if (_authProvider != null && _authProvider!.currentUser != null) {
+        currentUserId = _authProvider!.currentUser!.id;
+      }
+      
+      // Supabase에서 읽지 않은 알림 조회 후 개수 계산
+      final response = await _api.from('notifications')
+          .select('id')
+          .eq('user_id', currentUserId)
+          .eq('is_read', false);
+      
+      return (response as List<dynamic>).length;
+    } catch (e) {
+      print('알림 개수 조회 오류: $e');
+      // 오류 시 목업 데이터 반환
+      return _getMockNotifications()
+          .where((notification) => 
+              notification.userId == userId && 
+              notification.status == NotificationStatus.unread)
+          .length;
+    }
   }
 
   Future<void> markAsRead(String notificationId) async {

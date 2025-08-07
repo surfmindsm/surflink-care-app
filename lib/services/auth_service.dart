@@ -74,9 +74,9 @@ class AuthService {
       if (e.toString().contains('DEVELOPMENT_EMAIL_BYPASS_SUCCESS')) {
         print('[개발 모드] 이메일 미확인 사용자 로그인 성공 처리');
         
-        // 더미 사용자 생성 (개발용)
+        // 더미 사용자 생성 (개발용) - UUID 형식 사용
         final user = User(
-          id: 'dev-user-${DateTime.now().millisecondsSinceEpoch}',
+          id: '12345678-1234-1234-1234-123456789012', // UUID 형식
           email: email,
           name: '개발용 사용자',
           phone: null,

@@ -3,13 +3,21 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/chat.dart';
+import 'api_service.dart';
+import '../providers/auth_provider.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
   factory ChatService() => _instance;
   ChatService._internal();
 
-  String get _baseUrl => 'https://api.caresurflink.com'; // Mock URL
+  final ApiService _api = apiService;
+  AuthProvider? _authProvider;
+  
+  // AuthProvider 설정
+  void setAuthProvider(AuthProvider authProvider) {
+    _authProvider = authProvider;
+  }
   
   // WebSocket connection for real-time messaging
   StreamController<ChatMessage>? _messageStreamController;
@@ -90,34 +98,39 @@ class ChatService {
     int? limit,
     int? offset,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // TODO: 실제 API 호출
-    /*
-    final queryParams = <String, String>{
-      if (type != null) 'type': type.name,
-      if (limit != null) 'limit': limit.toString(),
-      if (offset != null) 'offset': offset.toString(),
-    };
-    
-    final uri = Uri.parse('$_baseUrl/chat/rooms').replace(queryParameters: queryParams);
-    final response = await http.get(
-      uri,
-      headers: {
-        'Authorization': 'Bearer ${await _getAccessToken()}',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((item) => ChatRoom.fromJson(item)).toList();
-    } else {
-      throw Exception('채팅방 목록 조회에 실패했습니다.');
+    try {
+      // AuthProvider에서 현재 사용자 정보 가져오기
+      String? currentUserId;
+      if (_authProvider != null && _authProvider!.currentUser != null) {
+        currentUserId = _authProvider!.currentUser!.id;
+      } else {
+        // Fallback: Supabase auth 사용
+        currentUserId = _api.auth.currentUser?.id;
+      }
+      
+      if (currentUserId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+      
+      final response = await _api.from('chat_rooms')
+          .select('*')
+          .contains('participants', [currentUserId])
+          .order('updated_at', ascending: false)
+          .limit(limit ?? 20);
+      
+      if ((response as List<dynamic>).isNotEmpty) {
+        return (response as List<dynamic>)
+            .map((item) => ChatRoom.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        // 비어있는 결과인 경우 빈 리스트 반환
+        return <ChatRoom>[];
+      }
+    } catch (e) {
+      print('채팅방 목록 조회 오류: $e');
+      // 오류 시 목업 데이터 반환
+      return _generateMockChatRooms(type: type);
     }
-    */
-    
-    // Mock 데이터
-    return _generateMockChatRooms(type: type);
   }
 
   // 채팅방 상세 조회

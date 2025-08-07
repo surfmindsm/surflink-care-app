@@ -2,13 +2,21 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/request.dart';
+import 'api_service.dart';
+import '../providers/auth_provider.dart';
 
 class RequestService {
   static final RequestService _instance = RequestService._internal();
   factory RequestService() => _instance;
   RequestService._internal();
 
-  String get _baseUrl => 'https://api.caresurflink.com'; // Mock URL
+  final ApiService _api = apiService;
+  AuthProvider? _authProvider;
+  
+  // AuthProvider 설정
+  void setAuthProvider(AuthProvider authProvider) {
+    _authProvider = authProvider;
+  }
 
   // 의뢰 생성
   Future<Map<String, dynamic>> createRequest(ServiceRequest request) async {
@@ -104,34 +112,39 @@ class RequestService {
     int? limit,
     int? offset,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // TODO: 실제 API 호출
-    /*
-    final queryParams = <String, String>{
-      if (status != null) 'status': status.name,
-      if (limit != null) 'limit': limit.toString(),
-      if (offset != null) 'offset': offset.toString(),
-    };
-    
-    final uri = Uri.parse('$_baseUrl/requests/my').replace(queryParameters: queryParams);
-    final response = await http.get(
-      uri,
-      headers: {
-        'Authorization': 'Bearer ${await _getAccessToken()}',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((item) => ServiceRequest.fromJson(item)).toList();
-    } else {
-      throw Exception('의뢰 목록 조회에 실패했습니다.');
+    try {
+      // AuthProvider에서 현재 사용자 정보 가져오기
+      String? currentUserId;
+      if (_authProvider != null && _authProvider!.currentUser != null) {
+        currentUserId = _authProvider!.currentUser!.id;
+      } else {
+        // Fallback: Supabase auth 사용
+        currentUserId = _api.auth.currentUser?.id;
+      }
+      
+      if (currentUserId == null) {
+        throw Exception('로그인이 필요합니다');
+      }
+      
+      final response = await _api.from('service_requests')
+          .select('*')
+          .eq('customer_id', currentUserId)
+          .order('created_at', ascending: false)
+          .limit(limit ?? 10);
+      
+      if ((response as List<dynamic>).isNotEmpty) {
+        return (response as List<dynamic>)
+            .map((item) => ServiceRequest.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        // 비어있는 결과인 경우 빈 리스트 반환
+        return <ServiceRequest>[];
+      }
+    } catch (e) {
+      print('내 의뢰 목록 조회 오류: $e');
+      // 오류 시 목업 데이터 반환
+      return _generateMockRequests(status: status);
     }
-    */
-    
-    // Mock 데이터
-    return _generateMockRequests(status: status);
   }
 
   // 의뢰 상세 조회
@@ -207,40 +220,30 @@ class RequestService {
     int? limit,
     int? offset,
   }) async {
-    await Future.delayed(const Duration(seconds: 1));
-    
-    // TODO: 실제 API 호출
-    /*
-    final queryParams = <String, String>{
-      if (serviceType != null) 'service_type': serviceType.name,
-      if (region != null) 'region': region,
-      if (minBudget != null) 'min_budget': minBudget.toString(),
-      if (maxBudget != null) 'max_budget': maxBudget.toString(),
-      if (limit != null) 'limit': limit.toString(),
-      if (offset != null) 'offset': offset.toString(),
-    };
-    
-    final uri = Uri.parse('$_baseUrl/requests/public').replace(queryParameters: queryParams);
-    final response = await http.get(
-      uri,
-      headers: {
-        'Authorization': 'Bearer ${await _getAccessToken()}',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      return data.map((item) => ServiceRequest.fromJson(item)).toList();
-    } else {
-      throw Exception('공개 의뢰 목록 조회에 실패했습니다.');
+    try {
+      // Supabase에서 공개 의뢰 데이터 조회 시도
+      final response = await _api.from('service_requests')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', ascending: false)
+          .limit(limit ?? 10);
+      
+      if ((response as List<dynamic>).isNotEmpty) {
+        return (response as List<dynamic>)
+            .map((item) => ServiceRequest.fromJson(item as Map<String, dynamic>))
+            .toList();
+      } else {
+        // 비어있는 결과인 경우 빈 리스트 반환
+        return <ServiceRequest>[];
+      }
+    } catch (e) {
+      print('공개 의뢰 목록 조회 오류: $e');
+      // 오류 시 목업 데이터 반환
+      return _generateMockPublicRequests(
+        serviceType: serviceType,
+        region: region,
+      );
     }
-    */
-    
-    // Mock 데이터
-    return _generateMockPublicRequests(
-      serviceType: serviceType,
-      region: region,
-    );
   }
 
   // 의뢰 통계

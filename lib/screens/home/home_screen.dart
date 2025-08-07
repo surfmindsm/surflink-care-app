@@ -14,6 +14,7 @@ import '../../widgets/quick_action_button.dart';
 import '../../services/notification_service.dart';
 import '../../services/request_service.dart';
 import '../../services/chat_service.dart';
+import '../../services/freelancer_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -42,6 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final NotificationService _notificationService = NotificationService();
   final RequestService _requestService = RequestService();
   final ChatService _chatService = ChatService();
+  final FreelancerService _freelancerService = FreelancerService();
 
   @override
   void initState() {
@@ -165,8 +167,12 @@ class _HomeScreenState extends State<HomeScreen> {
           _recommendations = recommendedRequests;
         });
       } else {
-        // 고객: 추천 전문가 (매칭 서비스에서) - 목업 데이터
-        final recommendedFreelancers = <dynamic>[];  // TODO: 매칭 서비스 구현시 원복
+        // 고객: 추천 전문가 (실제 API 호출)
+        final recommendedFreelancers = await _freelancerService.getRecommendedFreelancers(
+          customerId: user.id,
+          region: user.region,
+          limit: 5,
+        );
         setState(() {
           _recommendations = recommendedFreelancers;
         });
@@ -730,7 +736,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   onTap: () {
                                     if (isFreelancer && item is ServiceRequest) {
                                       context.go('/requests/${item.id}');
-                                    } else {
+                                    } else if (item is User) {
                                       // 전문가 상세 페이지로 이동
                                       context.go('/freelancers/${item.id}');
                                     }
@@ -758,7 +764,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Text(
                                           isFreelancer && item is ServiceRequest
                                               ? item.title
-                                              : (item is Map ? (item['name'] ?? '전문가') : '전문가'),
+                                              : (item is User ? item.name : '전문가'),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 14,
@@ -770,7 +776,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Text(
                                           isFreelancer && item is ServiceRequest
                                               ? '${item.region} • ${item.serviceType.displayName}'
-                                              : (item is Map ? (item['expertise'] ?? '전문 분야') : '전문 분야'),
+                                              : (item is User ? '${item.region ?? "지역미정"} • ${item.careerYears ?? 0}년 경력' : '전문 분야'),
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: Colors.grey,
@@ -785,8 +791,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                               const Icon(Icons.star, size: 12, color: Colors.orange),
                                               const SizedBox(width: 2),
                                               Text(
-                                                (item is Map && item['rating'] != null) 
-                                                    ? item['rating'].toStringAsFixed(1)
+                                                (item is User && item.rating != null) 
+                                                    ? item.rating!.toStringAsFixed(1)
                                                     : '4.8',
                                                 style: const TextStyle(fontSize: 12),
                                               ),
@@ -795,8 +801,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                             Text(
                                               isFreelancer && item is ServiceRequest
                                                   ? '${item.budget != null ? "${(item.budget! / 1000).toInt()}만원" : "협의"}'
-                                                  : (item is Map 
-                                                      ? '시급 ${item['hourlyRate'] ?? "20,000"}원'
+                                                  : (item is User 
+                                                      ? '경력 ${item.careerYears ?? 0}년'
                                                       : '시급 20,000원'),
                                               style: const TextStyle(
                                                 fontSize: 10,

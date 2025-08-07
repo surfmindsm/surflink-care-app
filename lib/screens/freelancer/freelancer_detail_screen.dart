@@ -5,6 +5,7 @@ import '../../models/user.dart';
 import '../../models/request.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/app_config.dart';
+import '../../services/freelancer_service.dart';
 
 
 class FreelancerDetailScreen extends StatefulWidget {
@@ -41,16 +42,68 @@ class _FreelancerDetailScreenState extends State<FreelancerDetailScreen>
     super.dispose();
   }
 
-  void _loadFreelancerDetail() {
-    // TODO: 실제 API 호출로 대체
-    Future.delayed(const Duration(seconds: 1), () {
+  void _loadFreelancerDetail() async {
+    try {
       setState(() {
-        _freelancer = _getSampleFreelancer();
-        _reviews = _getSampleReviews();
-        _portfolios = _getSamplePortfolios();
+        _isLoading = true;
+      });
+
+      // 동시에 여러 데이터 로드
+      final results = await Future.wait([
+        freelancerService.getFreelancer(widget.freelancerId),
+        freelancerService.getFreelancerReviews(widget.freelancerId, limit: 10),
+        freelancerService.getFreelancerPortfolios(widget.freelancerId),
+      ]);
+
+      final freelancer = results[0] as User?;
+      final reviews = results[1] as List<Map<String, dynamic>>;
+      final portfolios = results[2] as List<String>;
+
+      if (freelancer != null) {
+        setState(() {
+          _freelancer = freelancer;
+          _reviews = reviews;
+          _portfolios = portfolios;
+          _isLoading = false;
+        });
+
+        // 즐겨찾기 상태 확인 (고객일 경우만)
+        final authProvider = context.read<AuthProvider>();
+        if (authProvider.currentUser?.userType == UserType.customer) {
+          final isFav = await freelancerService.isFavorite(
+            widget.freelancerId,
+            authProvider.currentUser!.id,
+          );
+          setState(() {
+            _isFavorite = isFav;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
         _isLoading = false;
       });
-    });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('전문가 정보를 불러오는데 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        
+        // API 실패 시 임시로 샘플 데이터 사용
+        setState(() {
+          _freelancer = _getSampleFreelancer();
+          _reviews = _getSampleReviews();
+          _portfolios = _getSamplePortfolios();
+        });
+      }
+    }
   }
 
   User _getSampleFreelancer() {
@@ -506,15 +559,38 @@ class _FreelancerDetailScreenState extends State<FreelancerDetailScreen>
     }
   }
 
-  void _toggleFavorite() {
-    setState(() {
-      _isFavorite = !_isFavorite;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isFavorite ? '찜 목록에 추가했습니다' : '찜 목록에서 제거했습니다'),
-      ),
-    );
+  void _toggleFavorite() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.currentUser?.userType != UserType.customer) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('고객만 즐겨찾기를 사용할 수 있습니다')),
+      );
+      return;
+    }
+
+    try {
+      final newFavoriteStatus = await freelancerService.toggleFavorite(
+        widget.freelancerId,
+        authProvider.currentUser!.id,
+      );
+      
+      setState(() {
+        _isFavorite = newFavoriteStatus;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isFavorite ? '천 목록에 추가했습니다' : '천 목록에서 제거했습니다'),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('즐겨찾기 처리에 실패했습니다: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _startChat() {

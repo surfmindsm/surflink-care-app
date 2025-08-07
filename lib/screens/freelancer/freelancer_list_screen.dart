@@ -4,6 +4,7 @@ import '../../models/user.dart';
 import '../../models/request.dart';
 import '../../config/app_config.dart';
 import '../../widgets/freelancer_card.dart';
+import '../../services/freelancer_service.dart';
 
 class FreelancerListScreen extends StatefulWidget {
   const FreelancerListScreen({super.key});
@@ -46,15 +47,45 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
     super.dispose();
   }
 
-  void _loadFreelancers() {
-    // TODO: 실제 API 호출로 대체
-    Future.delayed(const Duration(seconds: 1), () {
+  void _loadFreelancers() async {
+    try {
       setState(() {
-        _freelancers = _getSampleFreelancers();
-        _filteredFreelancers = _freelancers;
+        _isLoading = true;
+      });
+
+      final freelancers = await freelancerService.getFreelancers(
+        searchQuery: _searchController.text.trim().isEmpty ? null : _searchController.text.trim(),
+        serviceType: _selectedServiceType,
+        region: _selectedRegion,
+        minRating: _minRating,
+        limit: 50, // 충분한 개수로 설정
+      );
+
+      setState(() {
+        _freelancers = freelancers;
+        _filteredFreelancers = freelancers;
         _isLoading = false;
       });
-    });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('전문가 목록을 불러오는데 실패했습니다: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        
+        // API 실패 시 임시로 샘플 데이터 사용
+        setState(() {
+          _freelancers = _getSampleFreelancers();
+          _filteredFreelancers = _freelancers;
+        });
+      }
+    }
   }
 
   List<User> _getSampleFreelancers() {
@@ -114,27 +145,8 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
   }
 
   void _filterFreelancers() {
-    final query = _searchController.text.toLowerCase();
-    
-    setState(() {
-      _filteredFreelancers = _freelancers.where((freelancer) {
-        final matchesSearch = query.isEmpty ||
-            freelancer.name.toLowerCase().contains(query) ||
-            freelancer.introduction?.toLowerCase().contains(query) == true;
-        
-        final matchesServiceType = _selectedServiceType == null ||
-            freelancer.specialties?.contains(_selectedServiceType!.name) == true;
-        
-        final matchesRegion = _selectedRegion == null ||
-            _selectedRegion == '전체' ||
-            freelancer.region == _selectedRegion;
-        
-        final matchesRating = _minRating == null ||
-            (freelancer.rating ?? 0) >= _minRating!;
-        
-        return matchesSearch && matchesServiceType && matchesRegion && matchesRating;
-      }).toList();
-    });
+    // API에서 이미 필터링된 데이터를 가져오므로 로컬 필터링 대신 재검색
+    _loadFreelancers();
   }
 
   @override

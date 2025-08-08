@@ -87,9 +87,13 @@ class _AppTabsState extends State<AppTabs>
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
-            indicatorColor: AppColor.primary7,
-            indicatorWeight: 2,
+            // shadcn/ui 스타일의 얇은 언더라인 인디케이터 및 여백 조정
+            indicator: UnderlineTabIndicator(
+              borderSide: BorderSide(color: AppColor.primary7, width: 2),
+              insets: const EdgeInsets.symmetric(horizontal: 12),
+            ),
             indicatorSize: TabBarIndicatorSize.label,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             splashFactory: NoSplash.splashFactory,
             overlayColor: MaterialStateProperty.all(Colors.transparent),
             tabs: widget.tabs.map((tab) => _buildTab(tab)).toList(),
@@ -140,6 +144,9 @@ class _AppTabsState extends State<AppTabs>
               ],
             ),
             indicatorSize: TabBarIndicatorSize.tab,
+            // 인디케이터와 라벨 패딩으로 더 세련된 pills 스타일 연출
+            indicatorPadding: const EdgeInsets.all(4),
+            labelPadding: const EdgeInsets.symmetric(horizontal: 12),
             splashFactory: NoSplash.splashFactory,
             overlayColor: MaterialStateProperty.all(Colors.transparent),
             tabs: widget.tabs.map((tab) => _buildTab(tab)).toList(),

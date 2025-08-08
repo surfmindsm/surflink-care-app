@@ -10,7 +10,7 @@ class MatchingService {
   factory MatchingService() => _instance;
   MatchingService._internal();
 
-  String get _baseUrl => AppConfig.apiBaseUrl;
+  String get _baseUrl => AppConfig.supabaseUrl;
 
   // 매칭 요청 생성 (고객 → 프리랜서)
   Future<Map<String, dynamic>> createMatchingRequest(MatchingCreateRequest request) async {
@@ -437,6 +437,7 @@ class MatchingService {
         name: '박프리랜서$i',
         phone: '010-1234-567$i',
         userType: UserType.freelancer,
+        status: UserStatus.active,
         isVerified: true,
         profileImageUrl: null,
         createdAt: DateTime.now().subtract(Duration(days: 30 + i)),

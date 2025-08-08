@@ -70,15 +70,18 @@ class AuthApiService {
           'Content-Type': 'application/json',
         };
         
+        final payload = {
+          'email': email,
+          'password': password,
+          'name': name,
+          'user_type': userType,
+          'userType': userType, // 호환성 위해 camelCase도 함께 전송
+          if (phone != null && phone.trim().isNotEmpty) 'phone': phone,
+        };
+
         final response = await dio.post(
           '${AppConfig.supabaseUrl}/functions/v1/auth-signup',
-          data: {
-            'email': email,
-            'password': password,
-            'name': name,
-            'phone': phone,
-            'user_type': userType,
-          },
+          data: payload,
         );
         
         if (response.statusCode == 200) {
@@ -100,18 +103,55 @@ class AuthApiService {
           throw Exception('Edge Function 오류: ${response.statusCode}');
         }
       } catch (e) {
-        if (e.toString().contains('DioException') || e.toString().contains('404') || e.toString().contains('500')) {
-          print('Edge Function 사용 불가, 대체 방법 사용...');
-          return await _signUpWithAlternativeMethod(
+        // Edge Function 실패 시 임시로 기본 auth.signUp 사용
+        print('Edge Function 회원가입 실패: $e');
+        if (e is DioException) {
+          final status = e.response?.statusCode;
+          final data = e.response?.data;
+          print('[Edge Function 응답] status=$status, data=$data');
+        }
+        
+        print('임시로 기본 auth.signUp 사용...');
+        try {
+          final authResponse = await _apiService.auth.signUp(
             email: email,
             password: password,
-            name: name,
-            phone: phone,
-            userType: userType,
+            data: {
+              'name': name,
+              'user_type': userType,
+            },
           );
-        } else {
-          rethrow;
+          
+          if (authResponse.user != null) {
+            final userId = authResponse.user!.id;
+            print('기본 auth.signUp 성공 - ID: $userId');
+            
+            // 프로필 생성 시도
+            try {
+              await _apiService.from('profiles').insert({
+                'id': userId,
+                'email': email,
+                'name': name,
+                if (phone != null && phone.trim().isNotEmpty) 'phone': phone,
+                'user_type': userType,
+              });
+              print('프로필 생성 성공');
+            } catch (profileError) {
+              print('프로필 생성 실패 (무시하고 계속): $profileError');
+            }
+            
+            // 로그인 시도
+            final loginResponse = await _apiService.auth.signInWithPassword(
+              email: email,
+              password: password,
+            );
+            return loginResponse;
+          }
+        } catch (fallbackError) {
+          print('기본 auth.signUp도 실패: $fallbackError');
         }
+        
+        throw Exception('회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.');
       }
       
     } catch (e) {
@@ -138,82 +178,47 @@ class AuthApiService {
     }
   }
 
-  // 대체 회원가입 방법 (이메일 확인 비활성화)
-  Future<AuthResponse> _signUpWithAlternativeMethod({
-    required String email,
-    required String password,
-    required String name,
-    required String? phone,
-    required String userType,
-  }) async {
+
+  // 서버 응답 메시지 추출 헬퍼
+  String? _extractServerMessage(dynamic data) {
     try {
-      print('대체 방법으로 회원가입 시도...');
-      
-      // 1. Supabase Auth에 사용자 생성 (이메일 확인 비활성화)
-      print('Auth 사용자 생성...');
-      final authResponse = await _apiService.auth.signUp(
-        email: email,
-        password: password,
-        emailRedirectTo: null, // 이메일 리다이렉트 비활성화
-        data: {
-          'name': name,
-          'user_type': userType,
-          'email': email, // metadata에 이메일 포함
-        },
-      );
-      
-      if (authResponse.user == null) {
-        throw Exception('Auth 사용자 생성 실패');
-      }
-      
-      final userId = authResponse.user!.id;
-      print('Auth 사용자 생성 성공 - ID: $userId');
-      
-      // 2. 개발 모드에서는 이메일 확인 강제 통과
-      print('개발 모드: 이메일 확인 우회하고 프로필 생성...');
-      
-      // 3. 현재 사용자로 로그인 시도 (이메일 확인 상태 무시)
-      try {
-        // 개발 환경에서는 바로 로그인 성공했다고 가정
-        print('개발용 로그인 성공 처리');
-        
-        // 프로필 생성은 건너뛰고 기본 auth만 사용
-        // 인증 이메일 발송 등 인증 관련 절차 완전 제거 (나중에 6자리 코드 인증 방식으로 복원 예정)
-        print('기본 Auth 사용자만 생성(이메일 인증 절차 없음), 프로필은 나중에 생성');
-        print('[생성된 Auth 사용자 ID] ${authResponse.user!.id}');
-        print('[Auth 사용자 이메일] ${authResponse.user!.email}');
-        print('[Auth 사용자 metadata] ${authResponse.user!.userMetadata}');
-        
-        // profiles 테이블 insert 시도 (인증 절차와 무관하게 바로 진행)
-        try {
-          print('profiles 테이블에 사용자 정보 INSERT 시도...');
-          final insertResponse = await _apiService.from('profiles').insert({
-            'id': userId,
-            'email': email,
-            'name': name,
-            'phone': phone,
-            'user_type': userType,
-            'is_verified': false,
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-          print('[profiles INSERT 성공] $insertResponse');
-        } catch (insertError) {
-          print('[profiles INSERT 실패] $insertError');
+      if (data == null) return null;
+      if (data is String) return data;
+      if (data is Map) {
+        final keys = ['message', 'error', 'msg', 'detail', 'error_description', 'description'];
+        for (final k in keys) {
+          final v = data[k];
+          if (v is String && v.trim().isNotEmpty) return v;
         }
-        return authResponse;
-      } catch (e) {
-        print('로그인 시도 실패: $e');
-        // 이메일 확인이 정말 필요한 경우
-        throw Exception('이메일 확인이 필요합니다. 이메일을 확인한 후 다시 로그인해주세요.');
+        final nestedError = data['error'];
+        if (nestedError is Map) {
+          final v = nestedError['message'] ?? nestedError['error'] ?? nestedError['detail'];
+          if (v is String && v.trim().isNotEmpty) return v;
+        }
+        final msg = data['msg'];
+        if (msg is Map) {
+          final v = msg['message'] ?? msg['detail'];
+          if (v is String && v.trim().isNotEmpty) return v;
+        }
+        return data.toString();
       }
-    } catch (e) {
-      print('대체 회원가입 방법 실패: $e');
-      rethrow;
+      if (data is List && data.isNotEmpty) {
+        final first = data.first;
+        if (first is Map) {
+          final keys = ['message', 'error', 'msg', 'detail'];
+          for (final k in keys) {
+            final v = first[k];
+            if (v is String && v.trim().isNotEmpty) return v;
+          }
+          return first.toString();
+        }
+        return first.toString();
+      }
+      return data.toString();
+    } catch (_) {
+      return null;
     }
   }
-
-
 
   // 로그인
   Future<AuthResponse> signIn({

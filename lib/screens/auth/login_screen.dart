@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/app_config.dart';
 import '../../widgets/social_login_button.dart';
+import '../../components/index.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,8 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   
-  bool _isPasswordVisible = false;
   bool _rememberMe = false;
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -29,7 +31,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     print('[로그] 로그인 시도: 이메일=${_emailController.text.trim()}');
-    if (!_formKey.currentState!.validate()) {
+    // AppInput/AppPasswordInput은 validator를 제공하지 않으므로 수동 검증
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    String? emailErr;
+    String? passwordErr;
+    if (email.isEmpty) {
+      emailErr = '이메일 또는 휴대폰번호를 입력해주세요';
+    }
+    if (password.isEmpty) {
+      passwordErr = '비밀번호를 입력해주세요';
+    }
+    if (emailErr != null || passwordErr != null) {
+      setState(() {
+        _emailError = emailErr;
+        _passwordError = passwordErr;
+      });
       print('[로그] 폼 검증 실패');
       return;
     }
@@ -197,64 +214,47 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         children: [
           // 이메일 입력
-          TextFormField(
+          AppInput(
+            label: '이메일 또는 휴대폰번호',
+            placeholder: '이메일 또는 휴대폰번호',
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: '이메일 또는 휴대폰번호',
-              prefixIcon: Icon(Icons.email_outlined),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return '이메일 또는 휴대폰번호를 입력해주세요';
+            prefixIcon: Icons.email_outlined,
+            errorText: _emailError,
+            onChanged: (v) {
+              if (_emailError != null) {
+                setState(() => _emailError = null);
               }
-              return null;
             },
           ),
           
           const SizedBox(height: 16),
           
           // 비밀번호 입력
-          TextFormField(
+          AppPasswordInput(
+            label: '비밀번호',
             controller: _passwordController,
-            obscureText: !_isPasswordVisible,
-            decoration: InputDecoration(
-              labelText: '비밀번호',
-              prefixIcon: const Icon(Icons.lock_outlined),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _isPasswordVisible = !_isPasswordVisible;
-                  });
-                },
-              ),
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return '비밀번호를 입력해주세요';
+            errorText: _passwordError,
+            onChanged: (v) {
+              if (_passwordError != null) {
+                setState(() => _passwordError = null);
               }
-              return null;
             },
+            size: InputSize.md,
           ),
           
           const SizedBox(height: 16),
           
           // 로그인 유지
-          Row(
-            children: [
-              Checkbox(
-                value: _rememberMe,
-                onChanged: (value) {
-                  setState(() {
-                    _rememberMe = value ?? false;
-                  });
-                },
-              ),
-              const Text('로그인 상태 유지'),
-            ],
+          AppCheckbox.simple(
+            value: _rememberMe,
+            onChanged: (value) {
+              setState(() {
+                _rememberMe = value ?? false;
+              });
+            },
+            label: '로그인 상태 유지',
+            size: CheckboxSize.md,
           ),
         ],
       ),
@@ -266,19 +266,11 @@ class _LoginScreenState extends State<LoginScreen> {
       builder: (context, authProvider, child) {
         return SizedBox(
           width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
+          child: PrimaryButton(
+            text: '로그인',
             onPressed: authProvider.isLoading ? null : _login,
-            child: authProvider.isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text('로그인'),
+            isLoading: authProvider.isLoading,
+            size: ButtonSize.lg,
           ),
         );
       },

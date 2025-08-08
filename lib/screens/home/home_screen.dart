@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
@@ -354,6 +354,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildHeader(),
             const SizedBox(height: 16),
+            _buildSearchBar(),
+            const SizedBox(height: 16),
             _buildStatusCards(),
             const SizedBox(height: 24),
             _buildServiceTypes(),
@@ -371,618 +373,418 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    if (user == null) return const SizedBox();
 
-        return Container(
-          padding: const EdgeInsets.all(AppConfig.defaultPadding),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(AppConfig.primaryColor),
-                Color(AppConfig.primaryColor).withOpacity(0.8),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+    return AppCard(
+      variant: CardVariant.filled,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          AppAvatar(
+            initials: user.name.substring(0, 1),
+            size: AvatarSize.md,
+            imageUrl: user.profileImageUrl,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.isFreelancer == true
-                            ? '안녕하세요, ${user?.name}님!'
-                            : '필요한 서비스를 찾아보세요',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        user?.isFreelancer == true
-                            ? '새로운 의뢰를 확인해보세요'
-                            : '신뢰할 수 있는 전문가들이 기다리고 있어요',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '안녕하세요',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
                   ),
-                  Row(
-                    children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: AppIcon.lucide(
-                                icon: LucideIcons.bell,
-                                color: Colors.white,
-                                size: 24),
-                            onPressed: () => context.go('/notifications'),
-                          ),
-                          if (_unreadNotificationCount > 0)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
-                                ),
-                                child: Text(
-                                  _unreadNotificationCount > 99
-                                      ? '99+'
-                                      : '$_unreadNotificationCount',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      IconButton(
-                        icon: AppIcon.lucide(
-                            icon: LucideIcons.settings,
-                            color: Colors.white,
-                            size: 24),
-                        onPressed: () => context.go('/settings'),
-                      ),
-                    ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${user.name}님',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (!_isVerified) ...[
+                  const SizedBox(height: 8),
+                  AppBadge(
+                    text: '프로필 인증 필요',
+                    variant: BadgeVariant.warning,
+                    size: BadgeSize.sm,
+                    icon: Icons.warning_amber,
                   ),
                 ],
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              Stack(
+                children: [
+                  AppButton(
+                    variant: ButtonVariant.ghost,
+                    size: ButtonSize.icon,
+                    icon: Icons.notifications_outlined,
+                    onPressed: () => context.go('/notifications'),
+                  ),
+                  if (_unreadNotificationCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: AppBadge(
+                        text: _unreadNotificationCount > 99
+                            ? '99+'
+                            : '$_unreadNotificationCount',
+                        variant: BadgeVariant.error,
+                        size: BadgeSize.sm,
+                      ),
+                    ),
+                ],
               ),
-
-              const SizedBox(height: 16),
-
-              // 검색바 (AppInput로 교체)
-              AppInput(
-                placeholder: user?.isFreelancer == true
-                    ? '원하는 의뢰를 검색하세요'
-                    : '필요한 서비스를 검색하세요',
-                prefixIcon: Icons.search,
-                size: InputSize.lg,
-                onTap: () => context.go('/search'),
+              const SizedBox(width: 8),
+              AppButton(
+                variant: ButtonVariant.ghost,
+                size: ButtonSize.icon,
+                icon: Icons.settings_outlined,
+                onPressed: () => context.go('/settings'),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
-  Widget _buildServiceTypes() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppConfig.defaultPadding),
-              child: Text(
-                user?.isFreelancer == true ? '서비스 분야' : '어떤 서비스가 필요하신가요?',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 120,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppConfig.defaultPadding),
-                children: [
-                  SizedBox(
-                    width: 140,
-                    child: AppCard(
-                      backgroundColor: Colors.pink.withOpacity(0.08),
-                      onTap: () {
-                        if (user?.isFreelancer == true) {
-                          context.go('/freelancers?type=childcare');
-                        } else {
-                          context.go('/requests/create?type=childcare');
-                        }
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.pink,
-                            child: AppIcon.lucide(
-                                icon: Icons.child_care,
-                                color: Colors.white,
-                                size: 20),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '돌봄',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '아이 돌봄 서비스',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600]),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 140,
-                    child: AppCard(
-                      backgroundColor: Colors.orange.withOpacity(0.08),
-                      onTap: () {
-                        if (user?.isFreelancer == true) {
-                          context.go('/freelancers?type=eldercare');
-                        } else {
-                          context.go('/requests/create?type=eldercare');
-                        }
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.orange,
-                            child: AppIcon.lucide(
-                                icon: Icons.elderly,
-                                color: Colors.white,
-                                size: 20),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '간병',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '어르신 간병 서비스',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600]),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 140,
-                    child: AppCard(
-                      backgroundColor: Colors.blue.withOpacity(0.08),
-                      onTap: () {
-                        if (user?.isFreelancer == true) {
-                          context.go('/freelancers?type=tutoring');
-                        } else {
-                          context.go('/requests/create?type=tutoring');
-                        }
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.blue,
-                            child: AppIcon.lucide(
-                                icon: Icons.school,
-                                color: Colors.white,
-                                size: 20),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '튜터링',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '학습 지도 서비스',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600]),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 140,
-                    child: AppCard(
-                      backgroundColor: Colors.green.withOpacity(0.08),
-                      onTap: () {
-                        if (user?.isFreelancer == true) {
-                          context.go('/freelancers?type=counseling');
-                        } else {
-                          context.go('/requests/create?type=counseling');
-                        }
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Colors.green,
-                            child: AppIcon.lucide(
-                                icon: Icons.psychology,
-                                color: Colors.white,
-                                size: 20),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '심리상담',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '전문 심리 상담',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600]),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
+  Widget _buildSearchBar() {
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: AppInput(
+        placeholder: user?.isFreelancer == true
+            ? '원하는 의뢰를 검색하세요'
+            : '필요한 서비스를 검색하세요',
+        prefixIcon: Icons.search,
+        size: InputSize.lg,
+        onTap: () => context.go('/search'),
+        disabled: false,
+      ),
     );
   }
 
   Widget _buildQuickActions() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    if (user == null) return const SizedBox();
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '빠른 메뉴',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: user.isFreelancer
+                ? [
+                    _buildQuickActionItem(
+                      '새 의뢰 찾기',
+                      Icons.search,
+                      Colors.blue,
+                      () => context.go('/requests'),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildQuickActionItem(
+                      '내 프로필',
+                      Icons.person,
+                      Colors.green,
+                      () => context.go('/profile'),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildQuickActionItem(
+                      '수익 현황',
+                      Icons.analytics,
+                      Colors.orange,
+                      () => context.go('/settlement'),
+                    ),
+                  ]
+                : [
+                    _buildQuickActionItem(
+                      '의뢰 등록',
+                      Icons.add_box,
+                      Colors.blue,
+                      () => context.go('/requests/create'),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildQuickActionItem(
+                      '전문가 찾기',
+                      Icons.search,
+                      Colors.green,
+                      () => context.go('/freelancers'),
+                    ),
+                    const SizedBox(width: 12),
+                    _buildQuickActionItem(
+                      '내 의뢰',
+                      Icons.list_alt,
+                      Colors.orange,
+                      () => context.go('/requests'),
+                    ),
+                  ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionItem(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: AppCard(
+        variant: CardVariant.outlined,
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+        onTap: onTap,
+        borderColor: color.withOpacity(0.3),
+        backgroundColor: color.withOpacity(0.05),
+        child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppConfig.defaultPadding),
-              child: Text(
-                '빠른 메뉴',
-                style: const TextStyle(
+            Icon(
+              icon,
+              color: color,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+
+  Widget _buildRecentActivity() {
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    final isFreelancer = user?.isFreelancer == true;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '최근 활동',
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppConfig.defaultPadding),
-              child: Row(
-                children: user?.isFreelancer == true
-                    ? [
-                        Expanded(
-                          child: AppButton(
-                            text: '새 의뢰 찾기',
-                            icon: Icons.search,
-                            variant: ButtonVariant.secondary,
-                            size: ButtonSize.lg,
-                            onPressed: () => context.go('/requests'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppButton(
-                            text: '내 프로필',
-                            icon: Icons.person,
-                            variant: ButtonVariant.secondary,
-                            size: ButtonSize.lg,
-                            onPressed: () => context.go('/profile'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppButton(
-                            text: '수익 현황',
-                            icon: Icons.analytics,
-                            variant: ButtonVariant.secondary,
-                            size: ButtonSize.lg,
-                            onPressed: () => context.go('/settlement'),
-                          ),
-                        ),
-                      ]
-                    : [
-                        Expanded(
-                          child: AppButton(
-                            text: '의뢰 등록',
-                            icon: Icons.add,
-                            variant: ButtonVariant.secondary,
-                            size: ButtonSize.lg,
-                            onPressed: () => context.go('/requests/create'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppButton(
-                            text: '전문가 찾기',
-                            icon: Icons.people,
-                            variant: ButtonVariant.secondary,
-                            size: ButtonSize.lg,
-                            onPressed: () => context.go('/freelancers'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppButton(
-                            text: '내 의뢰',
-                            icon: Icons.list,
-                            variant: ButtonVariant.secondary,
-                            size: ButtonSize.lg,
-                            onPressed: () => context.go('/requests'),
-                          ),
-                        ),
-                      ],
+              AppButton(
+                text: '전체 보기',
+                variant: ButtonVariant.ghost,
+                size: ButtonSize.sm,
+                onPressed: () => context.go('/activity'),
               ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRecentActivity() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-        final isFreelancer = user?.isFreelancer == true;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppConfig.defaultPadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '최근 활동',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => context.go('/activity'),
-                    child: const Text('전체 보기'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (_isLoadingData)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_recentNotifications.isNotEmpty)
-              // 실제 알림 데이터 표시
-              ..._recentNotifications.take(3).map((notification) => AppCard(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: AppConfig.defaultPadding,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: _getNotificationColor(
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_isLoadingData)
+            AppCard(
+              variant: CardVariant.filled,
+              padding: const EdgeInsets.all(32),
+              child: const Center(child: CircularProgressIndicator()),
+            )
+          else if (_recentNotifications.isNotEmpty)
+            // 실제 알림 데이터 표시
+            Column(
+              children: _recentNotifications.take(3).map((notification) => 
+                AppCard(
+                  variant: CardVariant.outlined,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppAvatar(
+                        initials: '',
+                        size: AvatarSize.sm,
+                        backgroundColor: _getNotificationColor(
+                            notification.type.toString().split('.').last),
+                        fallback: Icon(
+                          _getNotificationIcon(
                               notification.type.toString().split('.').last),
-                          child: AppIcon.lucide(
-                            icon: _getNotificationIcon(
-                                notification.type.toString().split('.').last),
-                            color: Colors.white,
-                            size: 18,
-                          ),
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                notification.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              notification.title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                notification.content,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              notification.content,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
                               ),
-                            ],
-                          ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatTimeAgo(notification.createdAt),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
+                      ),
+                      const SizedBox(width: 8),
+                      AppBadge(
+                        text: _formatTimeAgo(notification.createdAt),
+                        variant: BadgeVariant.secondary,
+                        size: BadgeSize.sm,
+                      ),
+                    ],
+                  ),
+                ),
+              ).toList(),
+            )
+          else if (_recentRequests.isNotEmpty)
+            // 최근 의뢰 데이터 표시
+            Column(
+              children: _recentRequests.take(3).map((request) => 
+                AppCard(
+                  variant: CardVariant.outlined,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppAvatar(
+                        initials: '',
+                        size: AvatarSize.sm,
+                        backgroundColor: _getServiceColor(request.serviceType),
+                        fallback: Icon(
+                          _getServiceIcon(request.serviceType),
+                          color: Colors.white,
+                          size: 18,
                         ),
-                      ],
-                    ),
-                  ))
-            else if (_recentRequests.isNotEmpty)
-              // 최근 의뢰 데이터 표시
-              ..._recentRequests.take(3).map((request) => AppCard(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: AppConfig.defaultPadding,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor:
-                              _getServiceColor(request.serviceType),
-                          child: AppIcon.lucide(
-                            icon: _getServiceIcon(request.serviceType),
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isFreelancer
-                                    ? '새로운 의뢰: ${request.title}'
-                                    : '의뢰 상태: ${request.status.displayName}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isFreelancer
+                                  ? '새로운 의뢰: ${request.title}'
+                                  : '의뢰 상태: ${request.status.displayName}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${request.region} • ${request.serviceType.displayName}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${request.region} • ${request.serviceType.displayName}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
                               ),
-                            ],
-                          ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatTimeAgo(request.updatedAt),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ))
-            else
-              // 기본 메시지
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(
-                  child: Text(
-                    '최근 활동이 없습니다',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
+                      ),
+                      const SizedBox(width: 8),
+                      AppBadge(
+                        text: _formatTimeAgo(request.updatedAt),
+                        variant: BadgeVariant.secondary,
+                        size: BadgeSize.sm,
+                      ),
+                    ],
+                  ),
+                ),
+              ).toList(),
+            )
+          else
+            // 기본 메시지
+            AppCard(
+              variant: CardVariant.filled,
+              padding: const EdgeInsets.all(32),
+              child: const Center(
+                child: Text(
+                  '최근 활동이 없습니다',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 14,
                   ),
                 ),
               ),
-          ],
-        );
-      },
+            ),
+        ],
+      ),
     );
   }
 
   Widget _buildRecommendations() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, child) {
-        final user = authProvider.currentUser;
-        final isFreelancer = user?.isFreelancer == true;
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    final isFreelancer = user?.isFreelancer == true;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppConfig.defaultPadding),
-              child: Text(
-                isFreelancer ? '추천 의뢰' : '추천 전문가',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isFreelancer ? '추천 의뢰' : '추천 전문가',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: _isLoadingData
-                  ? const Center(child: CircularProgressIndicator())
-                  : _recommendations.isEmpty
-                      ? Center(
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: _isLoadingData
+                ? AppCard(
+                    variant: CardVariant.filled,
+                    child: const Center(child: CircularProgressIndicator()),
+                  )
+                : _recommendations.isEmpty
+                    ? AppCard(
+                        variant: CardVariant.filled,
+                        child: Center(
                           child: Text(
                             isFreelancer ? '추천 의뢰가 없습니다' : '추천 전문가가 없습니다',
                             style: const TextStyle(
@@ -990,116 +792,221 @@ class _HomeScreenState extends State<HomeScreen> {
                               fontSize: 14,
                             ),
                           ),
-                        )
-                      : ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppConfig.defaultPadding),
-                          itemCount: _recommendations.length,
-                          itemBuilder: (context, index) {
-                            final item = _recommendations[index];
+                        ),
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _recommendations.length,
+                        itemBuilder: (context, index) {
+                          final item = _recommendations[index];
 
-                            return AppCard(
-                              width: 160,
-                              margin: const EdgeInsets.only(right: 12),
-                              onTap: () {
-                                if (isFreelancer && item is ServiceRequest) {
-                                  context.go('/requests/${item.id}');
-                                } else if (item is User) {
-                                  // 전문가 상세 페이지로 이동
-                                  context.go('/freelancers/${item.id}');
-                                }
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          return AppCard(
+                            variant: CardVariant.outlined,
+                            width: 160,
+                            margin: const EdgeInsets.only(right: 12),
+                            padding: const EdgeInsets.all(12),
+                            onTap: () {
+                              if (isFreelancer && item is ServiceRequest) {
+                                context.go('/requests/${item.id}');
+                              } else if (item is User) {
+                                context.go('/freelancers/${item.id}');
+                              }
+                            },
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AppAvatar(
+                                  initials: isFreelancer && item is ServiceRequest
+                                      ? item.title.substring(0, 1)
+                                      : (item is User ? item.name.substring(0, 1) : 'A'),
+                                  size: AvatarSize.md,
+                                  backgroundColor: isFreelancer && item is ServiceRequest
+                                      ? _getServiceColor(item.serviceType)
+                                      : Color(AppConfig.primaryColor),
+                                  fallback: Icon(
+                                    isFreelancer && item is ServiceRequest
+                                        ? _getServiceIcon(item.serviceType)
+                                        : Icons.person,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  isFreelancer && item is ServiceRequest
+                                      ? item.title
+                                      : (item is User ? item.name : '전문가'),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isFreelancer && item is ServiceRequest
+                                      ? '${item.region} • ${item.serviceType.displayName}'
+                                      : (item is User
+                                          ? '${item.region ?? "지역미정"} • ${item.careerYears ?? 0}년 경력'
+                                          : '전문 분야'),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const Spacer(),
+                                Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundColor: isFreelancer &&
-                                              item is ServiceRequest
-                                          ? _getServiceColor(item.serviceType)
-                                          : Color(AppConfig.primaryColor),
-                                      child: AppIcon.lucide(
-                                        icon: isFreelancer &&
-                                                item is ServiceRequest
-                                            ? _getServiceIcon(item.serviceType)
-                                            : Icons.person,
-                                        color: Colors.white,
-                                        size: 20,
+                                    if (!isFreelancer) ...[
+                                      Icon(
+                                        Icons.star,
+                                        size: 12,
+                                        color: Colors.orange,
                                       ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      isFreelancer && item is ServiceRequest
-                                          ? item.title
-                                          : (item is User ? item.name : '전문가'),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        (item is User && item.rating != null)
+                                            ? item.rating!.toStringAsFixed(1)
+                                            : '4.8',
+                                        style: const TextStyle(fontSize: 12),
                                       ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      isFreelancer && item is ServiceRequest
-                                          ? '${item.region} • ${item.serviceType.displayName}'
-                                          : (item is User
-                                              ? '${item.region ?? "지역미정"} • ${item.careerYears ?? 0}년 경력'
-                                              : '전문 분야'),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    ],
                                     const Spacer(),
-                                    Row(
-                                      children: [
-                                        if (!isFreelancer) ...[
-                                          AppIcon.lucide(
-                                              icon: Icons.star,
-                                              size: 12,
-                                              color: Colors.orange),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            (item is User &&
-                                                    item.rating != null)
-                                                ? item.rating!
-                                                    .toStringAsFixed(1)
-                                                : '4.8',
-                                            style:
-                                                const TextStyle(fontSize: 12),
-                                          ),
-                                        ],
-                                        const Spacer(),
-                                        Text(
-                                          isFreelancer && item is ServiceRequest
-                                              ? '${item.budget != null ? "${(item.budget! / 1000).toInt()}만원" : "협의"}'
-                                              : (item is User
-                                                  ? '경력 ${item.careerYears ?? 0}년'
-                                                  : '시급 20,000원'),
-                                          style: const TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
-                                      ],
+                                    AppBadge(
+                                      text: isFreelancer && item is ServiceRequest
+                                          ? '${item.budget != null ? "${(item.budget! / 1000).toInt()}만원" : "협의"}'
+                                          : (item is User
+                                              ? '${item.careerYears ?? 0}년'
+                                              : '2만원'),
+                                      variant: BadgeVariant.primary,
+                                      size: BadgeSize.sm,
                                     ),
                                   ],
                                 ),
-                              ),
-                            );
-                          },
-                        ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceTypes() {
+    final user = Provider.of<AuthProvider>(context).currentUser;
+    if (user == null) return const SizedBox();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '서비스 타입',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 1.5,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            children: [
+              _buildServiceTypeCard(
+                '돌봄',
+                '노인/아동 돌봄',
+                Icons.favorite_outline,
+                Colors.pink,
+                () => context.go('/services/care'),
+              ),
+              _buildServiceTypeCard(
+                '간병',
+                '환자 간병',
+                Icons.local_hospital_outlined,
+                Colors.red,
+                () => context.go('/services/nursing'),
+              ),
+              _buildServiceTypeCard(
+                '튜터링',
+                '학습 지도',
+                Icons.school_outlined,
+                Colors.blue,
+                () => context.go('/services/tutoring'),
+              ),
+              _buildServiceTypeCard(
+                '심리상담',
+                '정신건강 상담',
+                Icons.psychology_outlined,
+                Colors.green,
+                () => context.go('/services/counseling'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceTypeCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return AppCard(
+      variant: CardVariant.outlined,
+      padding: const EdgeInsets.all(16),
+      onTap: onTap,
+      borderColor: color.withOpacity(0.3),
+      backgroundColor: color.withOpacity(0.05),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+              const Spacer(),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: color,
+                size: 16,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1114,66 +1021,129 @@ class _HomeScreenState extends State<HomeScreen> {
             (((_profileStatus!['percentage'] as num?) ?? 0) < 100);
 
         return Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: [
               // 프로필 상태 카드
-              if (showProfileCard)
-                _buildProfileStatusCard(),
+              if (showProfileCard) _buildProfileStatusCard(),
 
               // 상태 요약 카드
               Row(
                 children: [
                   Expanded(
-                    child: SizedBox(
-                      height: 120,
-                      child: StatsCard(
-                        title: '진행 중',
-                        value: '$_pendingRequestCount',
-                        icon: Icons.work_outline,
-                        iconColor: Colors.blue,
-                        onTap: () => context.go('/requests'),
+                    child: AppCard(
+                      variant: CardVariant.filled,
+                      padding: const EdgeInsets.all(16),
+                      onTap: () => context.go('/requests'),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.work_outline,
+                            color: Colors.blue,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$_pendingRequestCount',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '진행 중',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: SizedBox(
-                      height: 120,
-                      child: StatsCard(
-                        title: '메시지',
-                        value: '$_unreadMessageCount',
-                        icon: Icons.message_outlined,
-                        iconColor: Colors.green,
-                        onTap: () => context.go('/chats'),
+                    child: AppCard(
+                      variant: CardVariant.filled,
+                      padding: const EdgeInsets.all(16),
+                      onTap: () => context.go('/chats'),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.message_outlined,
+                            color: Colors.green,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$_unreadMessageCount',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            '메시지',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: SizedBox(
-                      height: 120,
-                      child: StatsCard(
-                        title: user?.isFreelancer == true ? '이번달 수익' : '내역',
-                        value: user?.isFreelancer == true
-                            ? (_earningsData != null
-                                ? '${((_earningsData!['thisMonthEarnings'] as double) / 10000).toInt()}만원'
-                                : '-')
-                            : '보기',
-                        icon: user?.isFreelancer == true
-                            ? Icons.analytics_outlined
-                            : Icons.history,
-                        iconColor: user?.isFreelancer == true
-                            ? Colors.orange
-                            : Colors.purple,
-                        onTap: () {
-                          if (user?.isFreelancer == true) {
-                            context.go('/settlement');
-                          } else {
-                            context.go('/activity');
-                          }
-                        },
+                    child: AppCard(
+                      variant: CardVariant.filled,
+                      padding: const EdgeInsets.all(16),
+                      onTap: () {
+                        if (user?.isFreelancer == true) {
+                          context.go('/settlement');
+                        } else {
+                          context.go('/activity');
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          Icon(
+                            user?.isFreelancer == true
+                                ? Icons.analytics_outlined
+                                : Icons.history,
+                            color: user?.isFreelancer == true
+                                ? Colors.orange
+                                : Colors.purple,
+                            size: 32,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            user?.isFreelancer == true
+                                ? (_earningsData != null
+                                    ? '${((_earningsData!['thisMonthEarnings'] as double) / 10000).toInt()}만'
+                                    : '-')
+                                : '보기',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: user?.isFreelancer == true
+                                  ? Colors.orange
+                                  : Colors.purple,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user?.isFreelancer == true ? '이번달 수익' : '내역',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -1198,8 +1168,8 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              AppIcon.lucide(
-                icon: Icons.person_outline,
+              Icon(
+                Icons.person_outline,
                 color: Colors.orange,
                 size: 20,
               ),
@@ -1240,4 +1210,5 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 }

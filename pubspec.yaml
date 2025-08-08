@@ -88,6 +88,10 @@ dependencies:
   signature: ^5.5.0
   dropdown_button2: ^2.3.9
   
+  # Icons
+  lucide_icons: ^0.257.0
+  iconify_flutter: ^0.0.7
+  
   # Date & Time
   intl: ^0.19.0
   

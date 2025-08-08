@@ -84,8 +84,9 @@ class AuthApiService {
           data: payload,
         );
         
-        if (response.statusCode == 200) {
-          print('Edge Function 회원가입 성공');
+        final status = response.statusCode ?? 0;
+        if (status >= 200 && status < 300) {
+          print('Edge Function 회원가입 성공 (status: $status)');
           
           // 로그인하여 세션 생성
           final authResponse = await _apiService.auth.signInWithPassword(
@@ -100,57 +101,19 @@ class AuthApiService {
             throw Exception('로그인에 실패했습니다.');
           }
         } else {
-          throw Exception('Edge Function 오류: ${response.statusCode}');
+          final serverMsg = _extractServerMessage(response.data);
+          throw Exception('Edge Function 오류: $status${serverMsg != null ? ' - ' + serverMsg : ''}');
         }
+      } on DioException catch (e) {
+        final dioStatus = e.response?.statusCode;
+        final dioData = e.response?.data;
+        final serverMsg = _extractServerMessage(dioData);
+        print('[Edge Function 오류] status=$dioStatus, data=$dioData');
+        throw Exception(serverMsg != null
+            ? '회원가입 실패: $serverMsg (status: $dioStatus)'
+            : '회원가입 실패 (status: $dioStatus)');
       } catch (e) {
-        // Edge Function 실패 시 임시로 기본 auth.signUp 사용
-        print('Edge Function 회원가입 실패: $e');
-        if (e is DioException) {
-          final status = e.response?.statusCode;
-          final data = e.response?.data;
-          print('[Edge Function 응답] status=$status, data=$data');
-        }
-        
-        print('임시로 기본 auth.signUp 사용...');
-        try {
-          final authResponse = await _apiService.auth.signUp(
-            email: email,
-            password: password,
-            data: {
-              'name': name,
-              'user_type': userType,
-            },
-          );
-          
-          if (authResponse.user != null) {
-            final userId = authResponse.user!.id;
-            print('기본 auth.signUp 성공 - ID: $userId');
-            
-            // 프로필 생성 시도
-            try {
-              await _apiService.from('profiles').insert({
-                'id': userId,
-                'email': email,
-                'name': name,
-                if (phone != null && phone.trim().isNotEmpty) 'phone': phone,
-                'user_type': userType,
-              });
-              print('프로필 생성 성공');
-            } catch (profileError) {
-              print('프로필 생성 실패 (무시하고 계속): $profileError');
-            }
-            
-            // 로그인 시도
-            final loginResponse = await _apiService.auth.signInWithPassword(
-              email: email,
-              password: password,
-            );
-            return loginResponse;
-          }
-        } catch (fallbackError) {
-          print('기본 auth.signUp도 실패: $fallbackError');
-        }
-        
+        print('Edge Function 처리 중 예외: $e');
         throw Exception('회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.');
       }
       
@@ -384,8 +347,17 @@ class AuthApiService {
         return false;
       }
 
+      // 생성 컬럼 등 업데이트 불가 필드 제거
+      final safeData = Map<String, dynamic>.from(profileData);
+      const disallowedFields = {
+        'birth', // generated column - cannot be updated
+      };
+      for (final k in disallowedFields) {
+        if (safeData.containsKey(k)) safeData.remove(k);
+      }
+
       final response = await _apiService.from('profiles')
-          .update({...profileData, 'updated_at': DateTime.now().toIso8601String()})
+          .update({...safeData, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', user.id);
 
       print('[프로필 UPDATE 쿼리 결과] response: $response, type: ${response.runtimeType}');

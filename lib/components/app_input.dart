@@ -18,7 +18,10 @@ class AppInput extends StatefulWidget {
   final bool disabled;
   final bool required;
   final InputSize size;
+  // New: allow passing custom widgets for prefix/suffix (e.g., AppIcon)
+  final Widget? prefix;
   final IconData? prefixIcon;
+  final Widget? suffix;
   final IconData? suffixIcon;
   final VoidCallback? onSuffixIconTap;
   final TextInputType? keyboardType;
@@ -41,7 +44,9 @@ class AppInput extends StatefulWidget {
     this.disabled = false,
     this.required = false,
     this.size = InputSize.md,
+    this.prefix,
     this.prefixIcon,
+    this.suffix,
     this.suffixIcon,
     this.onSuffixIconTap,
     this.keyboardType,
@@ -157,27 +162,33 @@ class _AppInputState extends State<AppInput> {
                 fontSize: sizeTheme.fontSize,
                 color: AppColor.secondary04,
               ),
-              prefixIcon: widget.prefixIcon != null
-                  ? Icon(
-                      widget.prefixIcon,
-                      color: _isFocused 
-                          ? AppColor.primary7
-                          : AppColor.secondary04,
-                      size: sizeTheme.iconSize,
-                    )
-                  : null,
-              suffixIcon: widget.suffixIcon != null
-                  ? GestureDetector(
-                      onTap: widget.onSuffixIconTap,
-                      child: Icon(
-                        widget.suffixIcon,
-                        color: _isFocused 
+              prefixIcon: widget.prefix ?? (
+                widget.prefixIcon != null
+                    ? Icon(
+                        widget.prefixIcon,
+                        color: _isFocused
                             ? AppColor.primary7
                             : AppColor.secondary04,
                         size: sizeTheme.iconSize,
-                      ),
-                    )
-                  : null,
+                      )
+                    : null
+              ),
+              suffixIcon: widget.suffix != null
+                  ? (widget.onSuffixIconTap != null
+                      ? GestureDetector(onTap: widget.onSuffixIconTap, child: widget.suffix)
+                      : widget.suffix)
+                  : (widget.suffixIcon != null
+                      ? GestureDetector(
+                          onTap: widget.onSuffixIconTap,
+                          child: Icon(
+                            widget.suffixIcon,
+                            color: _isFocused
+                                ? AppColor.primary7
+                                : AppColor.secondary04,
+                            size: sizeTheme.iconSize,
+                          ),
+                        )
+                      : null),
               contentPadding: sizeTheme.padding,
               border: InputBorder.none,
               counterText: '',

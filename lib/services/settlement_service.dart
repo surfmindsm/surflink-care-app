@@ -245,11 +245,19 @@ class SettlementService {
         completedSteps++;
       }
 
-      // 프리랜서 전용 정보
-      final freelancerProfilesList = response['freelancer_profiles'] as List?;
-      final freelancerProfile = (freelancerProfilesList != null && freelancerProfilesList.isNotEmpty)
-          ? freelancerProfilesList.first as Map<String, dynamic>?
-          : <String, dynamic>{};
+      // 프리랜서 전용 정보 (List 또는 Map 양쪽 처리)
+      final fp = response['freelancer_profiles'];
+      Map<String, dynamic>? freelancerProfile;
+      if (fp is List && fp.isNotEmpty) {
+        final first = fp.first;
+        if (first is Map<String, dynamic>) {
+          freelancerProfile = first;
+        }
+      } else if (fp is Map<String, dynamic>) {
+        freelancerProfile = fp;
+      } else {
+        freelancerProfile = null;
+      }
 
       if (freelancerProfile != null && 
           freelancerProfile['bio'] != null && 

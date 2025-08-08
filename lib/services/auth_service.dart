@@ -164,14 +164,18 @@ class AuthService {
       if (authResponse.user != null) {
         // 사용자 프로필 업데이트 시도 (실패해도 무시)
         try {
-          await _authApiService.updateUserProfile({
+          final ok = await _authApiService.updateUserProfile({
             'name': name,
             'phone': phone,
             'birth': birth?.toIso8601String(),
             'gender': gender,
             'user_type': userType.toString().split('.').last,
           });
-          print('사용자 프로필 업데이트 성공');
+          if (ok) {
+            print('사용자 프로필 업데이트 성공');
+          } else {
+            print('사용자 프로필 업데이트 실패 (무시): updateUserProfile=false');
+          }
         } catch (profileError) {
           print('사용자 프로필 업데이트 실패 (무시): $profileError');
         }

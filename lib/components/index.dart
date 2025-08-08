@@ -47,3 +47,6 @@ export 'app_toast.dart';
 export 'app_popover.dart';
 export 'app_sheet.dart';
 export 'app_calendar.dart';
+ 
+ // Icons
+ export 'app_icon.dart';

@@ -82,31 +82,56 @@ class AppButton extends StatelessWidget {
                   ),
                 ),
               )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: sizeTheme.iconSize),
-                    if (text != null || child != null) 
-                      SizedBox(width: sizeTheme.iconSpacing),
-                  ],
-                  if (child != null)
-                    child!
-                  else if (text != null)
-                    Text(
-                      text!,
-                      style: TextStyle(
-                        fontSize: sizeTheme.fontSize,
-                        fontWeight: FontWeight.w500,
-                        height: 1,
-                      ),
-                    ),
-                  if (trailingIcon != null) ...[
-                    if (text != null || child != null) 
-                      SizedBox(width: sizeTheme.iconSpacing),
-                    Icon(trailingIcon, size: sizeTheme.iconSize),
-                  ],
-                ],
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool bounded = constraints.hasBoundedWidth;
+                  return Row(
+                    mainAxisSize: bounded ? MainAxisSize.max : MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: sizeTheme.iconSize),
+                        if (text != null || child != null)
+                          SizedBox(width: sizeTheme.iconSpacing),
+                      ],
+                      if (child != null)
+                        child!
+                      else if (text != null)
+                        (bounded
+                            ? Expanded(
+                                child: Text(
+                                  text!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    fontSize: sizeTheme.fontSize,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              )
+                            : Text(
+                                text!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: false,
+                                style: TextStyle(
+                                  fontSize: sizeTheme.fontSize,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1,
+                                ),
+                                textAlign: TextAlign.center,
+                              )),
+                      if (trailingIcon != null) ...[
+                        if (text != null || child != null)
+                          SizedBox(width: sizeTheme.iconSpacing),
+                        Icon(trailingIcon, size: sizeTheme.iconSize),
+                      ],
+                    ],
+                  );
+                },
               ),
       ),
     );

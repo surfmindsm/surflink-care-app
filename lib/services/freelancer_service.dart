@@ -40,7 +40,8 @@ class FreelancerService {
 
       // 지역 필터링
       if (region != null && region.isNotEmpty && region != '전체') {
-        query = query.eq('region', region);
+        // freelancer_profiles.service_areas 배열에 region 이 포함되는지 검사
+        query = query.contains('freelancer_profiles.service_areas', [region]);
       }
 
       // 최소 평점 필터링

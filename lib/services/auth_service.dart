@@ -342,6 +342,11 @@ class AuthService {
         'name': updatedUser.name,
         'phone': updatedUser.phone,
         'user_type': updatedUser.userType.toString().split('.').last,
+        // 프리랜서 전용 필드 전달 (AuthApiService에서 분기 처리)
+        if (updatedUser.specialties != null) 'specialties': updatedUser.specialties,
+        if (updatedUser.careerYears != null) 'career_years': updatedUser.careerYears,
+        if (updatedUser.introduction != null) 'introduction': updatedUser.introduction,
+        if (updatedUser.region != null) 'region': updatedUser.region,
       };
 
       final success = await _authApiService.updateUserProfile(profileData);

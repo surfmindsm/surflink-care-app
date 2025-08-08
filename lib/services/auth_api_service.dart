@@ -347,39 +347,83 @@ class AuthApiService {
         return false;
       }
 
-      // 생성 컬럼 등 업데이트 불가 필드 제거
-      final safeData = Map<String, dynamic>.from(profileData);
-      const disallowedFields = {
+      // profiles 테이블 업데이트용 데이터와 freelancer_profiles 데이터 분리
+      final nowIso = DateTime.now().toIso8601String();
+      final safeProfileData = Map<String, dynamic>.from(profileData);
+      const disallowedForProfiles = {
         'birth', // generated column - cannot be updated
+        // 프리랜서 전용 키는 profiles 업데이트에서 제외
+        'specialties',
+        'career_years',
+        'introduction',
+        'region',
       };
-      for (final k in disallowedFields) {
-        if (safeData.containsKey(k)) safeData.remove(k);
+      for (final k in disallowedForProfiles) {
+        safeProfileData.remove(k);
       }
 
-      final response = await _apiService.from('profiles')
-          .update({...safeData, 'updated_at': DateTime.now().toIso8601String()})
-          .eq('id', user.id);
+      if (safeProfileData.isNotEmpty) {
+        final response = await _apiService
+            .from('profiles')
+            .update({...safeProfileData, 'updated_at': nowIso})
+            .eq('id', user.id);
 
-      print('[프로필 UPDATE 쿼리 결과] response: $response, type: ${response.runtimeType}');
-      
-      // Supabase update는 보통 빈 배열을 반환하므로 에러가 없으면 성공으로 간주
-      print('프로필 UPDATE 완료 (에러 없음)');
-      
-      // 실제로 업데이트가 됐는지 확인해보자
-      try {
-        final checkProfile = await _apiService.from('profiles').select('*').eq('id', user.id).maybeSingle();
-        print('[프로필 확인 결과] $checkProfile');
-        if (checkProfile != null) {
-          print('프로필 UPDATE 성공: 데이터가 존재함');
-          return true;
-        } else {
-          print('프로필 UPDATE 실패: 해당 id의 row가 없음 (INSERT 필요)');
-          return false;
+        print('[profiles UPDATE] response: $response');
+      } else {
+        print('[profiles UPDATE] 변경할 데이터 없음');
+      }
+
+      // 프리랜서 전용 데이터 처리: freelancer_profiles upsert/update
+      final freelancerPayload = <String, dynamic>{};
+      if (profileData['specialties'] != null) {
+        freelancerPayload['service_categories'] = profileData['specialties'];
+      }
+      if (profileData['career_years'] != null) {
+        freelancerPayload['experience_years'] = profileData['career_years'];
+      }
+      if (profileData['introduction'] != null) {
+        freelancerPayload['bio'] = profileData['introduction'];
+      }
+      if (profileData['region'] != null) {
+        final r = profileData['region'];
+        if (r is String && r.isNotEmpty) {
+          // service_areas는 배열 컬럼
+          freelancerPayload['service_areas'] = [r];
         }
-      } catch (checkError) {
-        print('[프로필 확인 중 에러] $checkError');
-        return false;
       }
+
+      if (freelancerPayload.isNotEmpty) {
+        freelancerPayload['user_id'] = user.id;
+        freelancerPayload['updated_at'] = nowIso;
+        try {
+          final existing = await _apiService
+              .from('freelancer_profiles')
+              .select('user_id')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+          if (existing != null) {
+            final frUpdate = await _apiService
+                .from('freelancer_profiles')
+                .update(freelancerPayload)
+                .eq('user_id', user.id);
+            print('[freelancer_profiles UPDATE] $frUpdate');
+          } else {
+            freelancerPayload['created_at'] = nowIso;
+            final frInsert = await _apiService
+                .from('freelancer_profiles')
+                .insert(freelancerPayload);
+            print('[freelancer_profiles INSERT] $frInsert');
+          }
+        } catch (fpErr) {
+          print('[freelancer_profiles upsert 에러] $fpErr');
+          // 프로필 업데이트는 성공했을 수 있으므로 false 반환 대신 계속 진행
+        }
+      } else {
+        print('[freelancer_profiles] 전달된 프리랜서 전용 데이터 없음');
+      }
+
+      return true;
     } catch (e) {
       print('Update user profile error: $e');
       // 404 에러(테이블 없음)도 false 반환하지만 예외는 발생시키지 않음

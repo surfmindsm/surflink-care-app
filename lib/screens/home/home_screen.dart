@@ -1108,15 +1108,18 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, authProvider, child) {
         final user = authProvider.currentUser;
 
+        // 안전한 표시 조건 계산 (percentage가 null이어도 안전)
+        final bool showProfileCard = user?.isFreelancer == true &&
+            _profileStatus != null &&
+            (((_profileStatus!['percentage'] as num?) ?? 0) < 100);
+
         return Padding(
           padding:
               const EdgeInsets.symmetric(horizontal: AppConfig.defaultPadding),
           child: Column(
             children: [
               // 프로필 상태 카드
-              if (user?.isFreelancer == true &&
-                  _profileStatus != null &&
-                  _profileStatus!['percentage'] < 100)
+              if (showProfileCard)
                 _buildProfileStatusCard(),
 
               // 상태 요약 카드
@@ -1186,7 +1189,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProfileStatusCard() {
     final status = _profileStatus!;
 
-    final percentage = (status['percentage'] as num).toDouble();
+    final percentage = (status['percentage'] as num?)?.toDouble() ?? 0.0;
     return AppCard(
       variant: CardVariant.filled,
       margin: const EdgeInsets.only(bottom: 16),
@@ -1223,10 +1226,10 @@ class _HomeScreenState extends State<HomeScreen> {
             variant: ProgressVariant.warning,
             showPercentage: true,
           ),
-          if (status['missingItems'].isNotEmpty) ...[
+          if (((status['missingItems'] as List?) ?? const []).isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              '미완성: ${(status['missingItems'] as List).join(', ')}',
+              '미완성: ${(((status['missingItems'] as List?) ?? const []).join(', '))}',
               style: const TextStyle(
                 fontSize: 12,
                 color: Colors.orange,

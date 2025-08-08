@@ -303,10 +303,48 @@ class _SettlementScreenState extends State<SettlementScreen> with SingleTickerPr
               ),
             ),
             const SizedBox(height: 16),
-            _buildServiceItem('아이 돌봄', 250000, Colors.pink),
-            _buildServiceItem('영어 과외', 300000, Colors.blue),
-            _buildServiceItem('심리 상담', 150000, Colors.green),
-            _buildServiceItem('간병 서비스', 50000, Colors.orange),
+            Builder(builder: (_) {
+              final Map<String, num> breakdown =
+                  (_stats['serviceBreakdown'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num? ?? 0)))
+                      .cast<String, num>() ??
+                  {};
+
+              if (breakdown.isEmpty) {
+                return Text(
+                  '표시할 데이터가 없습니다',
+                  style: TextStyle(color: Colors.grey[600]),
+                );
+              }
+
+              final entries = breakdown.entries.toList()
+                ..sort((a, b) => b.value.compareTo(a.value));
+
+              final colors = <Color>[
+                Colors.blue,
+                Colors.green,
+                Colors.orange,
+                Colors.purple,
+                Colors.pink,
+                Colors.teal,
+                Colors.indigo,
+                Colors.redAccent,
+              ];
+
+              return Column(
+                children: [
+                  for (int i = 0; i < entries.length; i++)
+                    (() {
+                      final v = entries[i].value.toDouble();
+                      final amt = (v.isFinite && !v.isNaN) ? v.round() : 0;
+                      return _buildServiceItem(
+                        entries[i].key,
+                        amt,
+                        colors[i % colors.length],
+                      );
+                    })(),
+                ],
+              );
+            }),
           ],
         ),
       ),
@@ -314,8 +352,9 @@ class _SettlementScreenState extends State<SettlementScreen> with SingleTickerPr
   }
 
   Widget _buildServiceItem(String service, int amount, Color color) {
-    final total = _stats['totalEarnings'] ?? 1;
-    final percentage = (amount / total * 100).round();
+    final totalNum = (_stats['totalEarnings'] as num?)?.toDouble() ?? 0.0;
+    final ratio = totalNum > 0 ? (amount / totalNum * 100.0) : 0.0;
+    final percentage = (ratio.isFinite && !ratio.isNaN) ? ratio.round() : 0;
     
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),

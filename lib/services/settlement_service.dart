@@ -8,10 +8,21 @@ class SettlementService {
   Future<List<Settlement>> getSettlements(String freelancerId) async {
     try {
       print('[DEBUG] Settlement API 호출 시도 - freelancerId: $freelancerId');
-      
-      // DB 스키마 문제로 인해 임시로 목업 데이터 반환
-      print('[DEBUG] DB 스키마 문제로 인해 목업 데이터 반환');
-      return _getSampleSettlements();
+      // 실제 Supabase 쿼리
+      final response = await apiService
+          .from('settlements')
+          .select('id, total_amount, commission_amount, settlement_amount, status, processed_at, completed_at')
+          .eq('freelancer_id', freelancerId)
+          .order('processed_at', ascending: false);
+
+      final list = (response as List?) ?? [];
+      final settlements = list
+          .whereType<Map<String, dynamic>>()
+          .map((e) => Settlement.fromJson(e))
+          .toList();
+
+      // 빈 리스트일 경우에도 정상 반환
+      return settlements;
     } catch (e) {
       print('정산 목록 조회 에러: $e');
       return _getSampleSettlements();
@@ -22,10 +33,128 @@ class SettlementService {
   Future<Map<String, dynamic>> getSettlementStats(String freelancerId) async {
     try {
       print('[DEBUG] Settlement 통계 API 호출 시도 - freelancerId: $freelancerId');
-      
-      // DB 스키마 문제로 인해 임시로 목업 데이터 반환
-      print('[DEBUG] DB 스키마 문제로 인해 목업 통계 반환');
-      return _getSampleStats();
+      // 정산 데이터 집계
+      final response = await apiService
+          .from('settlements')
+          .select('total_amount, commission_amount, settlement_amount, status, processed_at, created_at')
+          .eq('freelancer_id', freelancerId);
+
+      final list = (response as List?) ?? [];
+
+      double totalEarnings = 0;
+      double thisMonthEarnings = 0;
+      double pendingAmount = 0;
+      double totalFee = 0;
+      int completedServices = 0;
+
+      final now = DateTime.now();
+      final thisMonth = DateTime(now.year, now.month, 1);
+
+      for (final item in list.whereType<Map<String, dynamic>>()) {
+        final status = (item['status'] as String?)?.toLowerCase();
+        final amount = (item['total_amount'] as num?)?.toDouble() ?? 0;
+        final fee = (item['commission_amount'] as num?)?.toDouble() ?? 0;
+        final net = (item['settlement_amount'] as num?)?.toDouble() ?? (amount - fee);
+        final reqAtStr = (item['processed_at'] as String?) ?? (item['created_at'] as String?);
+        DateTime? reqAt;
+        if (reqAtStr != null) {
+          try { reqAt = DateTime.parse(reqAtStr); } catch (_) {}
+        }
+
+        // 총합
+        totalEarnings += net;
+        totalFee += fee;
+
+        // 이번 달
+        if (reqAt != null && !reqAt.isBefore(thisMonth)) {
+          thisMonthEarnings += net;
+        }
+
+        // 상태별
+        if (status == 'completed') {
+          completedServices += 1;
+        } else if (status == 'pending') {
+          pendingAmount += net;
+        }
+      }
+
+      // 리뷰 평점 평균
+      double averageRating = 0.0;
+      try {
+        final reviews = await apiService
+            .from('reviews')
+            .select('rating')
+            .eq('reviewee_id', freelancerId);
+        final ratings = (reviews as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .map((e) => (e['rating'] as num?)?.toDouble())
+                .whereType<double>()
+                .toList() ??
+            [];
+        if (ratings.isNotEmpty) {
+          averageRating = ratings.reduce((a, b) => a + b) / ratings.length;
+        }
+      } catch (e) {
+        print('리뷰 평균 조회 실패(무시 가능): $e');
+      }
+
+      // 서비스별 수익 집계 (settlement_amount를 카테고리별로 누적)
+      final Map<String, double> serviceBreakdown = {};
+      try {
+        final breakdownResp = await apiService
+            .from('settlements')
+            .select(
+                'settlement_amount, payments:payment_id ( contracts:contract_id ( matchings:matching_id ( service_requests:request_id ( category ) ) ) )')
+            .eq('freelancer_id', freelancerId);
+
+        final bList = (breakdownResp as List?) ?? [];
+        for (final row in bList.whereType<Map<String, dynamic>>()) {
+          final amount = (row['settlement_amount'] as num?)?.toDouble() ?? 0.0;
+
+          dynamic payments = row['payments'];
+          dynamic contracts;
+          if (payments is Map) {
+            contracts = payments['contracts'];
+          } else if (payments is List && payments.isNotEmpty) {
+            contracts = payments.first['contracts'];
+          }
+
+          dynamic matchings;
+          if (contracts is Map) {
+            matchings = contracts['matchings'];
+          } else if (contracts is List && contracts.isNotEmpty) {
+            matchings = contracts.first['matchings'];
+          }
+
+          dynamic serviceReq;
+          if (matchings is Map) {
+            serviceReq = matchings['service_requests'];
+          } else if (matchings is List && matchings.isNotEmpty) {
+            serviceReq = matchings.first['service_requests'];
+          }
+
+          String category = '기타';
+          if (serviceReq is Map && serviceReq['category'] is String) {
+            category = serviceReq['category'] as String;
+          } else if (serviceReq is List && serviceReq.isNotEmpty && serviceReq.first['category'] is String) {
+            category = serviceReq.first['category'] as String;
+          }
+
+          serviceBreakdown[category] = (serviceBreakdown[category] ?? 0) + amount;
+        }
+      } catch (e) {
+        print('서비스별 수익 집계 실패(무시 가능): $e');
+      }
+
+      return {
+        'totalEarnings': totalEarnings,
+        'thisMonthEarnings': thisMonthEarnings,
+        'pendingAmount': pendingAmount,
+        'totalFee': totalFee,
+        'completedServices': completedServices,
+        'averageRating': double.parse(averageRating.toStringAsFixed(2)),
+        'serviceBreakdown': serviceBreakdown,
+      };
     } catch (e) {
       print('정산 통계 조회 에러: $e');
       return _getSampleStats();
@@ -108,6 +237,12 @@ class SettlementService {
       'totalFee': 75000.0,
       'completedServices': 15,
       'averageRating': 4.8,
+      'serviceBreakdown': {
+        '아이 돌봄': 250000.0,
+        '영어 과외': 300000.0,
+        '심리 상담': 150000.0,
+        '간병 서비스': 50000.0,
+      },
     };
   }
 

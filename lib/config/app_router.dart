@@ -99,36 +99,47 @@ class AppRouter {
           },
         ),
         
-        // Main App Routes with MainWrapper
-        GoRoute(
-          path: '/home',
-          builder: (context, state) => MainWrapper(
-            child: const HomeScreen(),
+        // Main App Shell with persistent BottomNavigationBar
+        ShellRoute(
+          builder: (context, state, child) => MainWrapper(
+            child: child,
             location: state.matchedLocation,
           ),
+          routes: [
+            // Tab root routes (housed inside the shell)
+            GoRoute(
+              path: '/home',
+              builder: (context, state) => const HomeScreen(),
+            ),
+            GoRoute(
+              path: '/requests',
+              builder: (context, state) => const RequestListScreen(),
+            ),
+            GoRoute(
+              path: '/freelancers',
+              builder: (context, state) => const FreelancerListScreen(),
+            ),
+            GoRoute(
+              path: '/chats',
+              builder: (context, state) => const ChatListScreen(),
+            ),
+            GoRoute(
+              path: '/profile',
+              builder: (context, state) => const ProfileScreen(),
+            ),
+            GoRoute(
+              path: '/settlement',
+              builder: (context, state) => const SettlementScreen(),
+            ),
+          ],
         ),
-        
-        // Profile Routes  
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => MainWrapper(
-            child: const ProfileScreen(),
-            location: state.matchedLocation,
-          ),
-        ),
+
+        // Profile 외 세부 화면 (탭 외부)
         GoRoute(
           path: '/profile/edit',
           builder: (context, state) => const EditProfileScreen(),
         ),
         
-        // Request Routes
-        GoRoute(
-          path: '/requests',
-          builder: (context, state) => MainWrapper(
-            child: const RequestListScreen(),
-            location: state.matchedLocation,
-          ),
-        ),
         GoRoute(
           path: '/requests/create',
           builder: (context, state) => const CreateRequestScreen(),
@@ -141,14 +152,6 @@ class AppRouter {
           },
         ),
         
-        // Freelancer Routes
-        GoRoute(
-          path: '/freelancers',
-          builder: (context, state) => MainWrapper(
-            child: const FreelancerListScreen(),
-            location: state.matchedLocation,
-          ),
-        ),
         GoRoute(
           path: '/freelancers/:id',
           builder: (context, state) {
@@ -157,14 +160,6 @@ class AppRouter {
           },
         ),
         
-        // Chat Routes
-        GoRoute(
-          path: '/chats',
-          builder: (context, state) => MainWrapper(
-            child: const ChatListScreen(),
-            location: state.matchedLocation,
-          ),
-        ),
         GoRoute(
           path: '/chat/:roomId',
           builder: (context, state) {
@@ -225,14 +220,7 @@ class AppRouter {
           builder: (context, state) => const ReportCreateScreen(),
         ),
         
-        // Settlement Routes
-        GoRoute(
-          path: '/settlement',
-          builder: (context, state) => MainWrapper(
-            child: const SettlementScreen(),
-            location: state.matchedLocation,
-          ),
-        ),
+        // Settlement detail screens (if any) remain outside shell
         
         // Search Routes
         GoRoute(

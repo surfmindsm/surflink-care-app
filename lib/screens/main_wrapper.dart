@@ -125,6 +125,13 @@ class _MainWrapperState extends State<MainWrapper> {
           type: BottomNavigationBarType.fixed,
           selectedItemColor: Color(AppConfig.primaryColor),
           unselectedItemColor: Colors.grey,
+          // 라벨/아이콘 크기를 동일하게 고정해서 클릭 시 레이아웃 점프(흔들림) 방지
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          selectedIconTheme: const IconThemeData(size: 24),
+          unselectedIconTheme: const IconThemeData(size: 24),
+          showUnselectedLabels: true,
+          showSelectedLabels: true,
           items: [
             const BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),

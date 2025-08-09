@@ -31,6 +31,14 @@ class AppInput extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onTap;
   final FocusNode? focusNode;
+  // New: Border and background customization
+  final Color? borderColor;
+  final Color? focusedBorderColor;
+  final Color? errorBorderColor;
+  final double? borderWidth;
+  final double? focusedBorderWidth;
+  final double? borderRadius;
+  final Color? backgroundColor;
 
   const AppInput({
     Key? key,
@@ -56,6 +64,13 @@ class AppInput extends StatefulWidget {
     this.onSubmitted,
     this.onTap,
     this.focusNode,
+    this.borderColor,
+    this.focusedBorderColor,
+    this.errorBorderColor,
+    this.borderWidth,
+    this.focusedBorderWidth,
+    this.borderRadius,
+    this.backgroundColor,
   }) : super(key: key);
 
   @override
@@ -124,18 +139,19 @@ class _AppInputState extends State<AppInput> {
         Container(
           height: sizeTheme.height * (widget.maxLines ?? 1),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(widget.borderRadius ?? 8),
             border: Border.all(
-              color: hasError 
-                  ? AppColor.error
-                  : _isFocused 
-                      ? AppColor.primary7
-                      : AppColor.border1,
-              width: _isFocused ? 2 : 1,
+              color: hasError
+                  ? (widget.errorBorderColor ?? AppColor.error)
+                  : _isFocused
+                      ? (widget.focusedBorderColor ?? AppColor.primary7)
+                      : (widget.borderColor ?? AppColor.border1),
+              width: _isFocused
+                  ? (widget.focusedBorderWidth ?? 2)
+                  : (widget.borderWidth ?? 1),
             ),
-            color: widget.disabled 
-                ? AppColor.secondary00
-                : AppColor.white,
+            color: widget.backgroundColor ??
+                (widget.disabled ? AppColor.secondary00 : AppColor.white),
           ),
           child: TextFormField(
             controller: widget.controller,

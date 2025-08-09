@@ -5,6 +5,7 @@ import '../../models/request.dart';
 import '../../config/app_config.dart';
 import '../../widgets/freelancer_card.dart';
 import '../../services/freelancer_service.dart';
+import '../../components/index.dart' as C;
 
 class FreelancerListScreen extends StatefulWidget {
   const FreelancerListScreen({super.key});
@@ -21,6 +22,8 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
   ServiceType? _selectedServiceType;
   String? _selectedRegion;
   double? _minRating;
+  String _sortOption = '추천순'; // 추천순, 평점순, 리뷰많은순
+  final List<String> _sortOptions = const ['추천순', '평점순', '리뷰많은순'];
 
   final List<String> _regions = [
     '전체',
@@ -153,9 +156,16 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('프리랜서 찾기'),
+        centerTitle: true,
+        title: const Text('커뮤니티'),
         actions: [
           IconButton(
+            tooltip: '정렬',
+            onPressed: _showSortSheet,
+            icon: const Icon(Icons.sort),
+          ),
+          IconButton(
+            tooltip: '필터',
             onPressed: _showFilterDialog,
             icon: const Icon(Icons.filter_list),
           ),
@@ -176,14 +186,14 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(AppConfig.defaultPadding),
-      child: TextField(
+      child: C.AppSearchInput(
+        placeholder: '이름, 소개 검색...',
         controller: _searchController,
-        decoration: const InputDecoration(
-          hintText: '이름, 소개 검색...',
-          prefixIcon: Icon(Icons.search),
-        ),
+        onSubmitted: (_) => _filterFreelancers(),
+        onClear: _filterFreelancers,
+        size: C.InputSize.md,
       ),
     );
   }
@@ -250,24 +260,43 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
 
   Widget _buildFreelancerList() {
     if (_filteredFreelancers.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.person_search_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '조건에 맞는 프리랜서가 없습니다',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
+      return Padding(
+        padding: const EdgeInsets.all(AppConfig.defaultPadding * 2),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              C.AppIcon.iconify(icon: 'mdi:account-search-outline', size: 64, semanticLabel: '검색 결과 없음'),
+              const SizedBox(height: 16),
+              Text(
+                '조건에 맞는 프리랜서가 없습니다',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                '필터를 조정하거나 검색어를 변경해 보세요.',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 16),
+              C.OutlineButton(
+                text: '필터 초기화',
+                icon: Icons.refresh,
+                onPressed: () {
+                  setState(() {
+                    _selectedServiceType = null;
+                    _selectedRegion = null;
+                    _minRating = null;
+                  });
+                  _searchController.clear();
+                  _filterFreelancers();
+                },
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -281,137 +310,129 @@ class _FreelancerListScreenState extends State<FreelancerListScreen> {
         itemCount: _filteredFreelancers.length,
         itemBuilder: (context, index) {
           final freelancer = _filteredFreelancers[index];
-          return FreelancerCard(
-            freelancer: freelancer,
-            onTap: () => context.push('/freelancers/${freelancer.id}'),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FreelancerCard(
+              freelancer: freelancer,
+              onTap: () => context.push('/freelancers/${freelancer.id}'),
+            ),
           );
         },
       ),
     );
   }
 
+  void _showSortSheet() {
+    C.AppSheet.showMenu(
+      context,
+      title: '정렬',
+      items: _sortOptions.map((o) {
+        final selected = o == _sortOption;
+        return C.AppSheetMenuItem(
+          title: selected ? '$o (선택됨)' : o,
+          icon: selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+          onTap: () {
+            setState(() {
+              _sortOption = o;
+              _filteredFreelancers = List<User>.from(_freelancers);
+              if (o == '평점순') {
+                _filteredFreelancers.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
+              } else if (o == '리뷰많은순') {
+                _filteredFreelancers.sort((a, b) => (b.reviewCount ?? 0).compareTo(a.reviewCount ?? 0));
+              }
+            });
+          },
+        );
+      }).toList(),
+    );
+  }
+
   void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: const EdgeInsets.all(AppConfig.defaultPadding),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '필터',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+    C.AppSheet.showBottomSheet(
+      context,
+      title: '필터',
+      child: StatefulBuilder(
+        builder: (context, setModalState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('서비스 유형', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Column(
+              children: [
+                RadioListTile<ServiceType?>(
+                  value: null,
+                  groupValue: _selectedServiceType,
+                  title: const Text('전체'),
+                  onChanged: (v) => setModalState(() => _selectedServiceType = null),
                 ),
-              ),
-              const SizedBox(height: 24),
-              
-              // 서비스 유형
-              const Text('서비스 유형'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: const Text('전체'),
-                    selected: _selectedServiceType == null,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setModalState(() {
-                          _selectedServiceType = null;
-                        });
-                      }
-                    },
-                  ),
-                  ...ServiceType.values.map((type) {
-                    return FilterChip(
-                      label: Text(type.label),
-                      selected: _selectedServiceType == type,
-                      onSelected: (selected) {
-                        setModalState(() {
-                          _selectedServiceType = selected ? type : null;
-                        });
-                      },
-                    );
-                  }).toList(),
-                ],
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // 지역
-              const Text('지역'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: _regions.map((region) {
-                  return FilterChip(
-                    label: Text(region),
-                    selected: _selectedRegion == region ||
-                        (region == '전체' && _selectedRegion == null),
-                    onSelected: (selected) {
+                ...ServiceType.values.map((type) => RadioListTile<ServiceType?>(
+                      value: type,
+                      groupValue: _selectedServiceType,
+                      title: Text(type.label),
+                      onChanged: (v) => setModalState(() => _selectedServiceType = v),
+                    )),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+            const Text('지역', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: _regions.map((region) {
+                final selected = _selectedRegion == region || (region == '전체' && _selectedRegion == null);
+                return ChoiceChip(
+                  label: Text(region),
+                  selected: selected,
+                  onSelected: (val) => setModalState(() => _selectedRegion = (region == '전체') ? null : region),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+            const Text('최소 평점', style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [4.0, 4.5, 4.8].map((rating) {
+                return ChoiceChip(
+                  label: Text('★ $rating 이상'),
+                  selected: _minRating == rating,
+                  onSelected: (val) => setModalState(() => _minRating = val ? rating : null),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: C.OutlineButton(
+                    text: '초기화',
+                    onPressed: () {
                       setModalState(() {
-                        _selectedRegion = selected && region != '전체' ? region : null;
+                        _selectedServiceType = null;
+                        _selectedRegion = null;
+                        _minRating = null;
                       });
                     },
-                  );
-                }).toList(),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // 평점
-              const Text('최소 평점'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [4.0, 4.5, 4.8].map((rating) {
-                  return FilterChip(
-                    label: Text('★ $rating 이상'),
-                    selected: _minRating == rating,
-                    onSelected: (selected) {
-                      setModalState(() {
-                        _minRating = selected ? rating : null;
-                      });
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: C.PrimaryButton(
+                    text: '적용',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      setState(() {});
+                      _filterFreelancers();
                     },
-                  );
-                }).toList(),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        setModalState(() {
-                          _selectedServiceType = null;
-                          _selectedRegion = null;
-                          _minRating = null;
-                        });
-                      },
-                      child: const Text('초기화'),
-                    ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() {});
-                        _filterFreelancers();
-                      },
-                      child: const Text('적용'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

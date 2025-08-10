@@ -44,6 +44,12 @@ class _HomeScreenState extends State<HomeScreen> {
   List<AppNotification> _recentNotifications = [];
   bool _isLoadingData = true;
 
+  // 검색 상태 (홈에서 인라인 검색)
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearching = false;
+  List<dynamic> _searchResults = [];
+
   final NotificationService _notificationService = NotificationService();
   final RequestService _requestService = RequestService();
   final ChatService _chatService = ChatService();
@@ -67,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -360,6 +367,10 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildHeader(),
               const SizedBox(height: 16),
               _buildSearchBar(),
+              if (_searchQuery.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildInlineSearchResults(),
+              ],
               const SizedBox(height: 16),
               _buildStatusCards(),
               const SizedBox(height: 24),
@@ -474,13 +485,26 @@ class _HomeScreenState extends State<HomeScreen> {
             user?.isFreelancer == true ? '원하는 의뢰를 검색하세요' : '필요한 서비스를 검색하세요',
         prefixIcon: Icons.search,
         size: InputSize.lg,
-        onTap: () => context.go('/search'),
+        controller: _searchController,
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value.trim();
+          });
+          // 입력이 비어지면 결과도 초기화
+          if (_searchQuery.isEmpty) {
+            setState(() {
+              _searchResults = [];
+              _isSearching = false;
+            });
+          }
+        },
+        onSubmitted: (value) => _performInlineSearch(value),
         disabled: false,
         // Border customization
-        borderColor: AppColor.border1,
+        borderColor: AppColor.secondary02,
         focusedBorderColor: AppColor.primary7,
         errorBorderColor: AppColor.error,
-        borderWidth: 1,
+        borderWidth: 0,
         focusedBorderWidth: 2,
         borderRadius: 12,
         backgroundColor: AppColor.white,
@@ -488,12 +512,189 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // 홈 화면 인라인 검색 실행
+  Future<void> _performInlineSearch(String value) async {
+    final query = value.trim();
+    if (query.isEmpty) return;
+
+    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    setState(() {
+      _isSearching = true;
+      _searchQuery = query;
+    });
+
+    try {
+      if (user?.isFreelancer == true) {
+        // 프리랜서: 의뢰 목록에서 텍스트 매칭으로 간단 검색 (제목/설명/지역)
+        final list = await _requestService.getPublicRequests(limit: 50);
+        final lowered = query.toLowerCase();
+        final filtered = list.where((r) {
+          final t = (r.title ?? '').toLowerCase();
+          final d = (r.description ?? '').toLowerCase();
+          final reg = (r.region ?? '').toLowerCase();
+          return t.contains(lowered) ||
+              d.contains(lowered) ||
+              reg.contains(lowered);
+        }).toList();
+        setState(() {
+          _searchResults = filtered;
+        });
+      } else {
+        // 고객: 프리랜서 검색 API 사용
+        final freelancers = await _freelancerService.getFreelancers(
+          searchQuery: query,
+          limit: 20,
+        );
+        setState(() {
+          _searchResults = freelancers;
+        });
+      }
+    } catch (e) {
+      // 실패 시 결과 초기화
+      setState(() {
+        _searchResults = [];
+      });
+    } finally {
+      setState(() {
+        _isSearching = false;
+      });
+    }
+  }
+
+  // 인라인 검색 결과 렌더링
+  Widget _buildInlineSearchResults() {
+    final user = Provider.of<AuthProvider>(context).currentUser;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.r),
+      child: AppCard(
+        backgroundColor: AppColor.white,
+        variant: CardVariant.filled,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _isSearching
+                        ? '검색 중...'
+                        : (_searchResults.isEmpty
+                            ? '검색 결과 없음'
+                            : '검색 결과 (${_searchResults.length})'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty)
+                  AppButton(
+                    text: '지우기',
+                    size: ButtonSize.sm,
+                    variant: ButtonVariant.ghost,
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                        _searchResults = [];
+                        _isSearching = false;
+                      });
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_isSearching)
+              const LinearProgressIndicator(minHeight: 2)
+            else ...[..._buildInlineResultItems(user?.isFreelancer == true)],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildInlineResultItems(bool isFreelancerView) {
+    // 프리랜서는 의뢰 리스트, 고객은 프리랜서 리스트
+    final items = _searchResults.take(5).toList();
+    return items.map((item) {
+      if (isFreelancerView) {
+        final r = item as ServiceRequest;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              const Icon(Icons.assignment_outlined,
+                  color: Colors.blueGrey, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      r.title ?? '의뢰',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      [r.region, r.description].whereType<String>().join(' · '),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        final u = item as User;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              const Icon(Icons.person_outline, color: Colors.teal, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      u.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      [
+                        (u.specialties?.isNotEmpty == true)
+                            ? u.specialties!.join(', ')
+                            : null,
+                        u.region
+                      ].whereType<String>().join(' · '),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }).toList();
+  }
+
   Widget _buildQuickActions() {
     final user = Provider.of<AuthProvider>(context).currentUser;
     if (user == null) return const SizedBox();
 
     return Container(
-      color: AppColor.white,
       margin: EdgeInsets.symmetric(horizontal: 16.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,12 +806,11 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '최근 활동',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTextStyle(
+                  color: AppColor.secondary06,
+                ).h2(),
               ),
               AppButton(
                 text: '전체 보기',
@@ -659,10 +859,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Text(
                                   notification.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
+                                  style: AppTextStyle(
+                                    color: AppColor.secondary06,
+                                  ).h3(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -787,12 +986,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text(
             isFreelancer ? '추천 의뢰' : '추천 전문가',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTextStyle(
+              color: AppColor.secondary06,
+            ).h2(),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.h),
           SizedBox(
             height: 200,
             child: _isLoadingData
@@ -930,12 +1128,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '서비스 타입',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTextStyle(
+              color: AppColor.secondary06,
+            ).h2(),
           ),
           const SizedBox(height: 16),
           GridView.count(
@@ -943,8 +1140,8 @@ class _HomeScreenState extends State<HomeScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             childAspectRatio: 1.5,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: 12.w,
+            mainAxisSpacing: 12.h,
             children: [
               _buildServiceTypeCard(
                 '돌봄',
@@ -1056,6 +1253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Expanded(
                     child: AppCard(
+                      backgroundColor: AppColor.white,
                       variant: CardVariant.filled,
                       padding: const EdgeInsets.all(16),
                       onTap: () => context.go('/requests'),
@@ -1064,7 +1262,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Icon(
                             Icons.work_outline,
                             color: Colors.blue,
-                            size: 32,
+                            size: 24.sp,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -1090,6 +1288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: AppCard(
+                      backgroundColor: AppColor.white,
                       variant: CardVariant.filled,
                       padding: const EdgeInsets.all(16),
                       onTap: () => context.go('/chats'),
@@ -1098,7 +1297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           Icon(
                             Icons.message_outlined,
                             color: Colors.green,
-                            size: 32,
+                            size: 24.sp,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -1124,6 +1323,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: AppCard(
+                      backgroundColor: AppColor.white,
                       variant: CardVariant.filled,
                       padding: const EdgeInsets.all(16),
                       onTap: () {
@@ -1142,7 +1342,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: user?.isFreelancer == true
                                 ? Colors.orange
                                 : Colors.purple,
-                            size: 32,
+                            size: 24.sp,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -1185,6 +1385,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final percentage = (status['percentage'] as num?)?.toDouble() ?? 0.0;
     return AppCard(
+      backgroundColor: AppColor.white,
       variant: CardVariant.filled,
       margin: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -1195,7 +1396,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(
                 Icons.person_outline,
                 color: Colors.orange,
-                size: 20,
+                size: 20.sp,
               ),
               const SizedBox(width: 8),
               const Expanded(

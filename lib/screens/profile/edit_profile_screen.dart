@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user.dart';
 import '../../config/app_config.dart';
+import '../../widgets/region_picker_dialog.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -18,6 +19,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _phoneController = TextEditingController();
   final _regionController = TextEditingController();
   final _introductionController = TextEditingController();
+  List<String> _selectedRegions = [];
   
   DateTime? _selectedBirth;
   String? _selectedGender;
@@ -38,6 +40,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _nameController.text = user.name;
       _phoneController.text = user.phone ?? '';
       _regionController.text = user.region ?? '';
+      // Parse existing region text into selections (comma-separated)
+      if ((user.region ?? '').trim().isNotEmpty) {
+        _selectedRegions = user.region!
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
       _introductionController.text = user.introduction ?? '';
       _selectedBirth = user.birth;
       _selectedGender = user.gender;
@@ -68,7 +78,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final updatedUser = user.copyWith(
       name: _nameController.text.trim(),
       phone: _phoneController.text.trim().isEmpty ? null : _phoneController.text.trim(),
-      region: _regionController.text.trim().isEmpty ? null : _regionController.text.trim(),
+      // Persist multi-selected regions as a comma-separated string for now
+      region: _selectedRegions.isEmpty
+          ? null
+          : _selectedRegions.join(', '),
       birth: _selectedBirth,
       gender: _selectedGender,
       introduction: _introductionController.text.trim().isEmpty ? null : _introductionController.text.trim(),
@@ -234,12 +247,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         
         const SizedBox(height: 16),
         
-        // 지역
-        TextFormField(
-          controller: _regionController,
-          decoration: const InputDecoration(
-            labelText: '지역',
-            prefixIcon: Icon(Icons.location_on_outlined),
+        // 지역 (다중 선택 모달)
+        InkWell(
+          onTap: () async {
+            final result = await RegionPickerDialog.show(
+              context,
+              initialSelections: _selectedRegions,
+            );
+            if (result != null) {
+              setState(() {
+                _selectedRegions = result;
+                _regionController.text = _selectedRegions.join(', ');
+              });
+            }
+          },
+          child: InputDecorator(
+            decoration: const InputDecoration(
+              labelText: '지역',
+              prefixIcon: Icon(Icons.location_on_outlined),
+            ),
+            child: _selectedRegions.isEmpty
+                ? const Text(
+                    '근무 지역을 선택하세요 (여러 개 선택 가능)'
+                  )
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: -8,
+                    children: _selectedRegions.map((e) {
+                      return Chip(
+                        label: Text(e),
+                        onDeleted: () {
+                          setState(() {
+                            _selectedRegions.remove(e);
+                            _regionController.text = _selectedRegions.join(', ');
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
           ),
         ),
         
